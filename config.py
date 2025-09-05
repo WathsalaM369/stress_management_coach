@@ -4,21 +4,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    # Model settings
-    MODEL_NAME = "j-hartmann/emotion-english-distilroberta-base"
-    MAX_LENGTH = 512
+    # Model paths
+    SENTIMENT_MODEL_PATH = 'models/sentiment_model'
+    NER_MODEL_PATH = 'models/ner_model'
     
-    # Stress mapping
-    STRESS_MAPPING = {
-        'anger': 8,
-        'disgust': 7,
-        'fear': 9,
-        'joy': 2,
-        'neutral': 4,
-        'sadness': 9,
-        'surprise': 5
-    }
+    # Security
+    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
     
-    # Thresholds
-    HIGH_STRESS_THRESHOLD = 7
-    MEDIUM_STRESS_THRESHOLD = 4
+    # Agent URLs
+    STRESS_ESTIMATOR_URL = 'http://localhost:5001/estimate'

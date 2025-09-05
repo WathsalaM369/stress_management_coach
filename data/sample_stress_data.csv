@@ -1,0 +1,11 @@
+text,expected_level
+"I feel great today! Everything is going well.",low
+"I have a lot of work to do but I'm managing.",medium
+"I'm so overwhelmed with deadlines and can't cope with the pressure.",high
+"Feeling a bit tired but overall okay.",low
+"This project is stressing me out and I can't focus.",high
+"Just a normal day, nothing special.",low
+"I'm worried about my exam next week.",medium
+"Everything is too much right now, I need a break.",high
+"Feeling good after my workout.",low
+"The presentation didn't go well, I'm anxious about the feedback.",medium
