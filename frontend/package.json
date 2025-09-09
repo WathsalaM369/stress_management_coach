@@ -1,0 +1,9 @@
+{
+  "name": "stress-dashboard",
+  "version": "1.0.0",
+  "description": "Frontend dashboard for Stress Level Estimator",
+  "scripts": {
+    "start": "python server.py",
+    "dev": "python -m http.server 3000"
+  }
+}

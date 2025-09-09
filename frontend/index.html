@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stress Level Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        .input-section {
+            grid-column: 1 / -1;
+        }
+        
+        .input-container {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 16px;
+            resize: vertical;
+            margin-bottom: 15px;
+            font-family: inherit;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+        
+        button {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .results-section {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .stress-level {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        
+        .level-badge {
+            font-size: 2em;
+            font-weight: bold;
+            padding: 15px 30px;
+            border-radius: 25px;
+            display: inline-block;
+        }
+        
+        .level-low {
+            background: linear-gradient(135deg, #4cd964 0%, #5ac8fa 100%);
+            color: white;
+        }
+        
+        .level-medium {
+            background: linear-gradient(135deg, #ffcc00 0%, #ff9500 100%);
+            color: white;
+        }
+        
+        .level-high {
+            background: linear-gradient(135deg, #ff3b30 0%, #ff9500 100%);
+            color: white;
+        }
+        
+        .score-display {
+            font-size: 3em;
+            font-weight: bold;
+            text-align: center;
+            margin: 20px 0;
+            color: #495057;
+        }
+        
+        .explanation {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #4facfe;
+            margin: 20px 0;
+        }
+        
+        .keywords {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .keyword {
+            background: #e9ecef;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            color: #495057;
+        }
+        
+        .chart-container {
+            height: 300px;
+            margin-top: 20px;
+        }
+        
+        .history-section {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .history-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .history-item {
+            padding: 15px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+        }
+        
+        .error {
+            background: #fff5f5;
+            color: #e53e3e;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #fed7d7;
+            margin: 15px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            header {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧠 Stress Level Analyzer</h1>
+            <p class="subtitle">AI-powered stress detection and monitoring</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="input-section">
+                <div class="input-container">
+                    <h2>How are you feeling today?</h2>
+                    <textarea 
+                        id="userInput" 
+                        placeholder="Describe your feelings, thoughts, or what's on your mind... 
+Example: 'I'm feeling overwhelmed with work deadlines and having trouble sleeping'"
+                    ></textarea>
+                    <button onclick="analyzeStress()">Analyze Stress Level</button>
+                </div>
+            </div>
+            
+            <div class="results-section">
+                <h2>Analysis Results</h2>
+                <div id="results">
+                    <div class="loading" id="loading">
+                        <p>Enter your thoughts above to see your stress analysis</p>
+                    </div>
+                    <div id="resultsContent" style="display: none;">
+                        <div class="stress-level">
+                            <span id="levelBadge" class="level-badge">Low</span>
+                        </div>
+                        
+                        <div class="score-display">
+                            <span id="stressScore">0.0</span>/10
+                        </div>
+                        
+                        <div class="explanation">
+                            <p id="explanationText">Your analysis will appear here...</p>
+                        </div>
+                        
+                        <div>
+                            <h3>Detected Keywords:</h3>
+                            <div id="keywordsContainer" class="keywords"></div>
+                        </div>
+                        
+                        <div class="chart-container">
+                            <canvas id="sentimentChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="history-section">
+                <h2>Stress History</h2>
+                <div id="historyList" class="history-list">
+                    <div class="loading">
+                        <p>No history yet. Your analysis will be saved here.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sentimentChart = null;
+        const API_BASE = 'http://localhost:5001';
+        let userId = 'user_' + Math.random().toString(36).substr(2, 9);
+        let history = [];
+
+        async function analyzeStress() {
+            const text = document.getElementById('userInput').value.trim();
+            if (!text) {
+                alert('Please enter some text to analyze');
+                return;
+            }
+
+            showLoading();
+            
+            try {
+                const response = await fetch(API_BASE + '/estimate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        user_id: userId
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                displayResults(data);
+                addToHistory(data);
+                
+            } catch (error) {
+                showError('Failed to analyze text: ' + error.message);
+            }
+        }
+
+        function displayResults(data) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('resultsContent').style.display = 'block';
+            
+            // Update stress level and score
+            document.getElementById('stressScore').textContent = data.stress_score;
+            
+            const levelBadge = document.getElementById('levelBadge');
+            levelBadge.textContent = data.stress_level;
+            levelBadge.className = 'level-badge level-' + data.stress_level.toLowerCase();
+            
+            // Update explanation
+            document.getElementById('explanationText').textContent = data.explanation;
+            
+            // Update keywords
+            const keywordsContainer = document.getElementById('keywordsContainer');
+            keywordsContainer.innerHTML = '';
+            
+            if (data.keywords && data.keywords.length > 0) {
+                data.keywords.forEach(keyword => {
+                    const span = document.createElement('span');
+                    span.className = 'keyword';
+                    span.textContent = keyword;
+                    keywordsContainer.appendChild(span);
+                });
+            } else {
+                keywordsContainer.innerHTML = '<span class="keyword">No stress keywords detected</span>';
+            }
+            
+            // Update sentiment chart
+            updateSentimentChart(data.sentiment_scores);
+        }
+
+        function updateSentimentChart(sentiment) {
+            const ctx = document.getElementById('sentimentChart').getContext('2d');
+            
+            if (sentimentChart) {
+                sentimentChart.destroy();
+            }
+            
+            sentimentChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Positive', 'Negative', 'Neutral'],
+                    datasets: [{
+                        data: [
+                            Math.round(sentiment.positive * 100),
+                            Math.round(sentiment.negative * 100),
+                            Math.round(sentiment.neutral * 100)
+                        ],
+                        backgroundColor: [
+                            '#4cd964',
+                            '#ff3b30',
+                            '#8e8e93'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.label + ': ' + context.raw + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function addToHistory(data) {
+            history.unshift({
+                timestamp: new Date().toLocaleString(),
+                text: data.input_text.substring(0, 50) + (data.input_text.length > 50 ? '...' : ''),
+                score: data.stress_score,
+                level: data.stress_level
+            });
+            
+            // Keep only last 10 items
+            history = history.slice(0, 10);
+            
+            updateHistoryDisplay();
+        }
+
+        function updateHistoryDisplay() {
+            const historyList = document.getElementById('historyList');
+            
+            if (history.length === 0) {
+                historyList.innerHTML = '<div class="loading"><p>No history yet. Your analysis will be saved here.</p></div>';
+                return;
+            }
+            
+            historyList.innerHTML = '';
+            
+            history.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                
+                div.innerHTML = `
+                    <div>
+                        <strong>${item.score}/10</strong>
+                        <span class="level-badge level-${item.level.toLowerCase()}" style="font-size: 0.8em; padding: 3px 10px;">
+                            ${item.level}
+                        </span>
+                        <div style="font-size: 0.9em; color: #6c757d; margin-top: 5px;">
+                            ${item.text}
+                        </div>
+                    </div>
+                    <div style="font-size: 0.8em; color: #6c757d;">
+                        ${item.timestamp}
+                    </div>
+                `;
+                
+                historyList.appendChild(div);
+            });
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('resultsContent').style.display = 'none';
+            document.getElementById('loading').innerHTML = '<p>Analyzing your text... ⏳</p>';
+        }
+
+        function showError(message) {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('resultsContent').style.display = 'none';
+            document.getElementById('loading').innerHTML = `
+                <div class="error">
+                    <p>${message}</p>
+                    <p>Make sure your Stress Estimator Agent is running on port 5001.</p>
+                </div>
+            `;
+        }
+
+        // Load history on page load
+        updateHistoryDisplay();
+    </script>
+</body>
+</html>
