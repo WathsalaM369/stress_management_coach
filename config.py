@@ -22,3 +22,17 @@ class Config:
     # Thresholds
     HIGH_STRESS_THRESHOLD = 7
     MEDIUM_STRESS_THRESHOLD = 4
+
+# config.py (Updated for Flask)
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+class Settings:
+    def __init__(self):
+        self.database_url = os.getenv("DATABASE_URL", "sqlite:///./stress_app.db")
+        self.agent_port = int(os.getenv("AGENT_PORT", 5000))
+
+settings = Settings()
