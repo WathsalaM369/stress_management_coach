@@ -1,8 +1,10 @@
 import json
 import logging
+import math
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
+import numpy as np
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,437 +27,448 @@ class AdaptiveTaskScheduler:
         self.break_activities = []
         self.workload_alerts = []
         self.postponement_suggestions = []
-    
-    def process_inputs(self, stress_level: int, tasks: List[Dict], 
-                      mood_state: MoodState, time_blocks: List[Dict],
-                      break_activities: List[Dict]) -> Dict[str, Any]:
-        """
-        Main method to process all inputs and generate an optimized schedule
-        """
-        try:
-            # Validate inputs
-            self._validate_inputs(stress_level, tasks, mood_state, time_blocks, break_activities)
-            
-            # Store break activities
-            self.break_activities = break_activities
-            
-            # Apply scheduling rules based on stress and mood
-            prioritized_tasks = self._prioritize_tasks(tasks, stress_level, mood_state)
-            
-            # Schedule tasks with breaks
-            optimized_schedule = self._schedule_tasks_with_breaks(
-                prioritized_tasks, time_blocks, stress_level, mood_state
-            )
-            
-            # Generate workload alerts if needed
-            self._generate_workload_alerts(optimized_schedule, stress_level)
-            
-            # Generate postponement suggestions if stress is too high
-            self._generate_postponement_suggestions(optimized_schedule, stress_level)
-            
-            return self._format_output(optimized_schedule)
-            
-        except Exception as e:
-            logger.error(f"Error in processing inputs: {str(e)}")
-            raise
-    
-    def _validate_inputs(self, stress_level: int, tasks: List[Dict], 
-                        mood_state: MoodState, time_blocks: List[Dict],
-                        break_activities: List[Dict]):
-        """Validate all input parameters"""
-        if not (1 <= stress_level <= 10):
-            raise ValueError("Stress level must be between 1 and 10")
         
-        if not tasks:
-            raise ValueError("Task list cannot be empty")
-        
-        if not time_blocks:
-            raise ValueError("Time blocks cannot be empty")
-        
-        if not isinstance(mood_state, MoodState):
-            raise ValueError("Invalid mood state")
-    
-    def _prioritize_tasks(self, tasks: List[Dict], stress_level: int, 
-                         mood_state: MoodState) -> List[Dict]:
-        """
-        Prioritize tasks based on stress level, mood, and deadlines
-        """
-        # Calculate priority scores for each task
-        prioritized = []
-        for task in tasks:
-            # Base priority (higher number = higher priority)
-            priority_score = 0
-            
-            # Priority based on task priority
-            priority = task.get('priority', 'medium')
-            if priority == 'high':
-                priority_score += 3
-            elif priority == 'medium':
-                priority_score += 2
-            else:
-                priority_score += 1
-            
-            # Adjust based on deadline proximity (sooner deadlines get higher priority)
-            if 'deadline' in task:
-                deadline = datetime.fromisoformat(task['deadline'])
-                days_until_deadline = (deadline - datetime.now()).days
-                if days_until_deadline <= 1:
-                    priority_score += 4
-                elif days_until_deadline <= 3:
-                    priority_score += 3
-                elif days_until_deadline <= 7:
-                    priority_score += 2
-            
-            # Adjust based on stress compatibility
-            stress_compatibility = self._calculate_stress_compatibility(task, stress_level, mood_state)
-            priority_score += stress_compatibility * 2  # Weight stress compatibility
-            
-            prioritized.append((task, priority_score))
-        
-        # Sort by priority score (descending)
-        prioritized.sort(key=lambda x: x[1], reverse=True)
-        
-        return [task for task, score in prioritized]
-    
-    def _calculate_stress_compatibility(self, task: Dict, stress_level: int, 
-                                      mood_state: MoodState) -> float:
-        """
-        Calculate how compatible a task is with current stress level and mood
-        Returns a score between 0 and 1 (higher is more compatible)
-        """
-        compatibility = 0.5  # Base compatibility
-        
-        # Adjust based on stress level
-        if stress_level >= 8:  # Very high stress
-            # Better compatibility with shorter, less complex tasks
-            estimated_duration = task.get('estimated_duration', 60)
-            if estimated_duration <= 60:  # 1 hour or less
-                compatibility += 0.2
-            else:
-                compatibility -= 0.3
-        elif stress_level >= 5:  # Medium stress
-            compatibility += 0.1
-        else:  # Low stress
-            # Better compatibility with longer, more complex tasks
-            estimated_duration = task.get('estimated_duration', 60)
-            if estimated_duration > 120:  # More than 2 hours
-                compatibility += 0.2
-        
-        # Adjust based on mood
-        if mood_state == MoodState.ENERGETIC:
-            # Good for challenging tasks
-            if task.get('priority') == 'high':
-                compatibility += 0.2
-        elif mood_state == MoodState.TIRED:
-            # Better for simpler, routine tasks
-            if task.get('priority') == 'low':
-                compatibility += 0.2
-            else:
-                compatibility -= 0.1
-        elif mood_state == MoodState.FOCUSED:
-            # Good for complex tasks requiring concentration
-            compatibility += 0.1
-        elif mood_state == MoodState.SCATTERED:
-            # Better for simpler, broken-down tasks
-            description = task.get('description', '').lower()
-            if "chunk" in description or "simple" in description:
-                compatibility += 0.2
-            else:
-                compatibility -= 0.1
-        
-        # Ensure compatibility is between 0 and 1
-        return max(0, min(1, compatibility))
-    
-    def _schedule_tasks_with_breaks(self, prioritized_tasks: List[Dict], 
-                                   time_blocks: List[Dict], stress_level: int,
-                                   mood_state: MoodState) -> List[Dict]:
-        """
-        Schedule tasks into time blocks with appropriate breaks
-        """
-        scheduled_tasks = []
-        available_blocks = self._prepare_time_blocks(time_blocks)
-        
-        for task in prioritized_tasks:
-            # Find the best time block for this task
-            best_block, compatibility = self._find_best_time_block(
-                task, available_blocks, stress_level, mood_state
-            )
-            
-            if best_block:
-                # Schedule the task
-                scheduled_task = {
-                    "task": task,
-                    "time_block": best_block,
-                    "stress_compatibility": compatibility,
-                    "notes": self._generate_task_notes(task, stress_level, mood_state)
-                }
-                scheduled_tasks.append(scheduled_task)
-                
-                # Mark block as unavailable
-                best_block['is_available'] = False
-                best_block['assigned_task'] = task
-                
-                # Schedule breaks if needed (based on stress level and task duration)
-                self._schedule_breaks_after_task(scheduled_task, available_blocks, stress_level)
-        
-        return scheduled_tasks
-    
-    def _prepare_time_blocks(self, time_blocks: List[Dict]) -> List[Dict]:
-        """Prepare time blocks for scheduling by sorting and ensuring availability"""
-        # Sort time blocks by start time
-        sorted_blocks = sorted(time_blocks, key=lambda x: x['start_time'])
-        
-        # Only consider available blocks
-        return [block for block in sorted_blocks if block.get('is_available', True)]
-    
-    def _find_best_time_block(self, task: Dict, available_blocks: List[Dict],
-                             stress_level: int, mood_state: MoodState) -> (Optional[Dict], float):
-        """
-        Find the best time block for a task based on multiple factors
-        """
-        best_block = None
-        best_compatibility = -1
-        
-        task_duration = task.get('estimated_duration', 60)
-        
-        for block in available_blocks:
-            block_duration = self._calculate_block_duration(block)
-            
-            if block_duration >= task_duration:
-                # Calculate time compatibility (time of day factors)
-                time_compatibility = self._calculate_time_compatibility(task, block, mood_state)
-                
-                # Calculate overall compatibility
-                compatibility = time_compatibility
-                
-                if compatibility > best_compatibility:
-                    best_compatibility = compatibility
-                    best_block = block
-        
-        return best_block, best_compatibility
-    
-    def _calculate_block_duration(self, time_block: Dict) -> int:
-        """Calculate duration of a time block in minutes"""
-        start_time = datetime.fromisoformat(time_block['start_time'])
-        end_time = datetime.fromisoformat(time_block['end_time'])
-        return int((end_time - start_time).total_seconds() / 60)
-    
-    def _calculate_time_compatibility(self, task: Dict, time_block: Dict,
-                                    mood_state: MoodState) -> float:
-        """
-        Calculate how compatible a time block is with a task based on time of day
-        """
-        compatibility = 0.5  # Base compatibility
-        
-        start_time = datetime.fromisoformat(time_block['start_time'])
-        hour = start_time.hour
-        
-        # Morning (6am-12pm) - good for focused work
-        if 6 <= hour < 12:
-            if mood_state == MoodState.FOCUSED and task.get('priority') == 'high':
-                compatibility += 0.3
-            elif task.get('category') in ["creative", "planning"]:
-                compatibility += 0.2
-        
-        # Afternoon (12pm-5pm) - good for collaborative work
-        elif 12 <= hour < 17:
-            if task.get('category') in ["meeting", "collaboration"]:
-                compatibility += 0.3
-            elif mood_state == MoodState.ENERGETIC:
-                compatibility += 0.2
-        
-        # Evening (5pm-10pm) - good for routine tasks
-        elif 17 <= hour < 22:
-            if task.get('priority') == 'low' or task.get('category') in ["routine", "maintenance"]:
-                compatibility += 0.3
-            else:
-                compatibility -= 0.2
-        
-        # Night (10pm-6am) - generally not ideal for most tasks
-        else:
-            compatibility -= 0.4
-        
-        return max(0, min(1, compatibility))
-    
-    def _schedule_breaks_after_task(self, scheduled_task: Dict,
-                                   available_blocks: List[Dict], stress_level: int):
-        """
-        Schedule breaks after tasks based on stress level and task duration
-        """
-        task = scheduled_task['task']
-        time_block = scheduled_task['time_block']
-        
-        task_duration = task.get('estimated_duration', 60)
-        start_time = datetime.fromisoformat(time_block['start_time'])
-        task_end_time = start_time + timedelta(minutes=task_duration)
-        
-        # Determine break need based on stress level and task duration
-        break_needed = False
-        break_duration = 5  # Default short break in minutes
-        
-        if stress_level >= 7 or task_duration >= 60:
-            break_needed = True
-            if stress_level >= 7:
-                break_duration = 15  # Longer break for high stress
-            elif task_duration >= 120:
-                break_duration = 10  # Medium break for long tasks
-        
-        if break_needed:
-            # Find a time block right after the task for the break
-            for block in available_blocks:
-                if (block.get('is_available', True) and 
-                    datetime.fromisoformat(block['start_time']) >= task_end_time and
-                    self._calculate_block_duration(block) >= break_duration):
-                    
-                    # Select appropriate break activity
-                    break_activity = self._select_break_activity(stress_level, break_duration)
-                    
-                    if break_activity:
-                        # Schedule the break
-                        break_block = {
-                            'start_time': block['start_time'],
-                            'end_time': (datetime.fromisoformat(block['start_time']) + 
-                                        timedelta(minutes=break_duration)).isoformat(),
-                            'is_available': False,
-                            'label': f"Break: {break_activity.get('title', 'Rest')}"
-                        }
-                        scheduled_task['time_block']['assigned_task'] = break_activity
-                        break
-    
-    def _select_break_activity(self, stress_level: int, 
-                              available_duration: int) -> Optional[Dict]:
-        """
-        Select an appropriate break activity based on stress level and available time
-        """
-        if not self.break_activities:
-            return None
-            
-        suitable_activities = [
-            activity for activity in self.break_activities
-            if activity.get('duration', 5) <= available_duration
-        ]
-        
-        if not suitable_activities:
-            return None
-        
-        # Sort by stress reduction effectiveness (descending)
-        suitable_activities.sort(key=lambda x: x.get('stress_reduction', 0), reverse=True)
-        
-        # For high stress, prioritize high stress reduction activities
-        if stress_level >= 7:
-            return suitable_activities[0] if suitable_activities else None
-        
-        # For medium stress, balance duration and effectiveness
-        if stress_level >= 4:
-            # Prefer activities that use most of the available time but are effective
-            suitable_activities.sort(
-                key=lambda x: (x.get('stress_reduction', 0), 
-                              x.get('duration', 5)/available_duration), 
-                reverse=True
-            )
-            return suitable_activities[0] if suitable_activities else None
-        
-        # For low stress, any activity is fine
-        return suitable_activities[0] if suitable_activities else None
-    
-    def _generate_workload_alerts(self, scheduled_tasks: List[Dict], stress_level: int):
-        """
-        Generate alerts if the schedule becomes overwhelming
-        """
-        total_work_minutes = 0
-        
-        for task in scheduled_tasks:
-            if not task['time_block'].get('label', '').startswith("Break:"):
-                total_work_minutes += task['task'].get('estimated_duration', 0)
-        
-        total_work_hours = total_work_minutes / 60
-        
-        # Alert if high stress and more than 6 hours of work
-        if stress_level >= 7 and total_work_hours > 6:
-            self.workload_alerts.append({
-                "type": "high_stress_heavy_workload",
-                "message": "High stress level combined with heavy workload detected",
-                "suggested_action": "Consider rescheduling non-urgent tasks or adding more breaks",
-                "total_work_hours": total_work_hours,
-                "stress_level": stress_level
-            })
-        
-        # Alert if more than 8 hours of work regardless of stress
-        if total_work_hours > 8:
-            self.workload_alerts.append({
-                "type": "excessive_workload",
-                "message": "Schedule exceeds recommended daily work hours",
-                "suggested_action": "Consider postponing some tasks to maintain productivity and wellbeing",
-                "total_work_hours": total_work_hours,
-                "stress_level": stress_level
-            })
-    
-    def _generate_postponement_suggestions(self, scheduled_tasks: List[Dict], 
-                                          stress_level: int):
-        """
-        Generate suggestions for task postponement when stress is too high
-        """
-        if stress_level >= 8:  # Very high stress
-            # Suggest postponing non-urgent tasks
-            for task in scheduled_tasks:
-                task_data = task['task']
-                if (task_data.get('priority') == 'low' and 
-                    task_data.get('is_flexible', True)):
-                    self.postponement_suggestions.append({
-                        "task_id": task_data.get('id', 'unknown'),
-                        "task_title": task_data.get('title', 'Unknown Task'),
-                        "reason": "High stress level reduces effectiveness for non-urgent tasks",
-                        "suggested_new_time": "Tomorrow or when stress level decreases"
-                    })
-    
-    def _generate_task_notes(self, task: Dict, stress_level: int, 
-                            mood_state: MoodState) -> str:
-        """
-        Generate helpful notes for each scheduled task
-        """
-        notes = []
-        
-        # High stress suggestions
-        if stress_level >= 7:
-            if task.get('estimated_duration', 0) > 60:
-                notes.append("Consider breaking this task into smaller chunks due to high stress")
-            notes.append("Take short breaks every 25 minutes to maintain focus")
-        
-        # Mood-based suggestions
-        if mood_state == MoodState.TIRED:
-            notes.append("This might feel challenging given your current energy level")
-        elif mood_state == MoodState.ENERGETIC:
-            notes.append("Good time to tackle this with your current energy")
-        elif mood_state == MoodState.SCATTERED:
-            notes.append("Try minimizing distractions while working on this task")
-        
-        # Task-specific suggestions
-        if task.get('priority') == 'high':
-            notes.append("High priority task - focus on completion")
-        
-        return "; ".join(notes)
-    
-    def _format_output(self, scheduled_tasks: List[Dict]) -> Dict[str, Any]:
-        """
-        Format the output for the scheduler
-        """
-        total_work_minutes = 0
-        total_break_minutes = 0
-        
-        for task in scheduled_tasks:
-            if task['time_block'].get('label', '').startswith("Break:"):
-                total_break_minutes += task['task'].get('estimated_duration', 0)
-            else:
-                total_work_minutes += task['task'].get('estimated_duration', 0)
-        
-        return {
-            "optimized_schedule": scheduled_tasks,
-            "workload_alerts": self.workload_alerts,
-            "postponement_suggestions": self.postponement_suggestions,
-            "schedule_metadata": {
-                "total_scheduled_tasks": len(scheduled_tasks),
-                "total_work_hours": total_work_minutes / 60,
-                "total_break_time": total_break_minutes / 60,
-                "generated_at": datetime.now().isoformat()
+        # Stress-based scheduling rules
+        self.stress_rules = {
+            "high_stress": {
+                "threshold": 7,
+                "actions": ["simplify_tasks", "add_breaks", "postpone_non_urgent"],
+                "max_work_hours": 6
+            },
+            "medium_stress": {
+                "threshold": 4,
+                "actions": ["balance_tasks", "moderate_breaks"],
+                "max_work_hours": 8
+            },
+            "low_stress": {
+                "threshold": 0,
+                "actions": ["challenge_optimal", "minimal_breaks"],
+                "max_work_hours": 10
             }
         }
+    
+    def analyze_and_schedule(self, stress_data: Dict, tasks: List[Dict], 
+                           mood: str, available_blocks: List[Dict]) -> Dict[str, Any]:
+        """
+        Main method that analyzes stress and schedules tasks intelligently
+        """
+        try:
+            # Extract stress information
+            stress_level = stress_data.get('stress_level', 5)
+            stress_reasons = stress_data.get('reasons', [])
+            
+            # Convert mood to enum
+            mood_state = self._parse_mood_state(mood)
+            
+            # Analyze tasks and their properties
+            analyzed_tasks = self._analyze_tasks(tasks, stress_level, mood_state)
+            
+            # Apply stress-based scheduling rules
+            prioritized_tasks = self._apply_stress_rules(analyzed_tasks, stress_level, stress_reasons)
+            
+            # Schedule tasks considering time compatibility
+            schedule = self._create_optimized_schedule(prioritized_tasks, available_blocks, stress_level, mood_state)
+            
+            # Generate insights and recommendations
+            insights = self._generate_insights(schedule, stress_level, mood_state)
+            
+            return {
+                "optimized_schedule": schedule,
+                "stress_analysis": {
+                    "level": stress_level,
+                    "impact_on_schedule": self._assess_stress_impact(stress_level),
+                    "recommended_actions": self._get_stress_actions(stress_level)
+                },
+                "task_analysis": {
+                    "total_tasks": len(tasks),
+                    "scheduled_tasks": len(schedule),
+                    "priority_distribution": self._get_priority_distribution(tasks),
+                    "deadline_pressure": self._calculate_deadline_pressure(tasks)
+                },
+                "insights": insights,
+                "generated_at": datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in analysis and scheduling: {str(e)}")
+            raise
+    
+    def _analyze_tasks(self, tasks: List[Dict], stress_level: int, mood_state: MoodState) -> List[Dict]:
+        """Analyze each task for stress compatibility and scheduling factors"""
+        analyzed_tasks = []
+        
+        for task in tasks:
+            # Calculate multiple scoring factors
+            urgency_score = self._calculate_urgency_score(task)
+            importance_score = self._calculate_importance_score(task)
+            stress_compatibility = self._calculate_stress_compatibility(task, stress_level, mood_state)
+            complexity_score = self._assess_complexity(task)
+            
+            # Calculate overall priority score (weighted average)
+            overall_score = (
+                urgency_score * 0.35 +
+                importance_score * 0.3 +
+                stress_compatibility * 0.25 +
+                complexity_score * 0.1
+            )
+            
+            analyzed_task = {
+                **task,
+                "analysis": {
+                    "urgency_score": urgency_score,
+                    "importance_score": importance_score,
+                    "stress_compatibility": stress_compatibility,
+                    "complexity_score": complexity_score,
+                    "overall_priority": overall_score,
+                    "recommended_duration": self._adjust_duration_for_stress(
+                        task.get('estimated_duration', 60), stress_level
+                    )
+                }
+            }
+            
+            analyzed_tasks.append(analyzed_task)
+        
+        return analyzed_tasks
+    
+    def _calculate_urgency_score(self, task: Dict) -> float:
+        """Calculate how urgent a task is based on deadline"""
+        if 'deadline' not in task:
+            return 0.5  # Medium urgency if no deadline
+        
+        try:
+            deadline_str = task['deadline'].replace('Z', '+00:00')
+            deadline = datetime.fromisoformat(deadline_str)
+            now = datetime.now(deadline.tzinfo) if deadline.tzinfo else datetime.now()
+            
+            time_until_deadline = (deadline - now).total_seconds()
+            
+            # Convert to hours and calculate urgency
+            hours_until_deadline = time_until_deadline / 3600
+            
+            if hours_until_deadline <= 24:  # 1 day
+                return 1.0
+            elif hours_until_deadline <= 72:  # 3 days
+                return 0.8
+            elif hours_until_deadline <= 168:  # 1 week
+                return 0.6
+            else:
+                return 0.4
+                
+        except (ValueError, TypeError):
+            return 0.5
+    
+    def _calculate_importance_score(self, task: Dict) -> float:
+        """Calculate importance based on priority and category"""
+        priority_map = {
+            'high': 1.0,
+            'medium': 0.7,
+            'low': 0.4
+        }
+        
+        category_weights = {
+            'work': 0.9,
+            'health': 0.95,
+            'finance': 0.85,
+            'education': 0.8,
+            'personal': 0.6,
+            'leisure': 0.4
+        }
+        
+        priority_score = priority_map.get(task.get('priority', 'medium'), 0.5)
+        category = task.get('category', 'personal')
+        category_score = category_weights.get(category, 0.5)
+        
+        return (priority_score * 0.6 + category_score * 0.4)
+    
+    def _calculate_stress_compatibility(self, task: Dict, stress_level: int, mood_state: MoodState) -> float:
+        """Calculate how compatible a task is with current stress level"""
+        # Base compatibility decreases as stress increases
+        base_compatibility = 1.0 - (stress_level / 20)  # 0.5 at stress level 10
+        
+        # Adjust based on task complexity
+        complexity = self._assess_complexity(task)
+        if stress_level > 6 and complexity > 0.7:
+            base_compatibility *= 0.6  # Reduce compatibility for complex tasks under high stress
+        
+        # Adjust based on mood
+        mood_adjustment = self._get_mood_adjustment(mood_state, task)
+        base_compatibility *= mood_adjustment
+        
+        # Adjust based on task duration (longer tasks less compatible with high stress)
+        duration = task.get('estimated_duration', 60)
+        if stress_level > 5 and duration > 120:  # More than 2 hours
+            base_compatibility *= 0.8
+        
+        return max(0.1, min(1.0, base_compatibility))
+    
+    def _assess_complexity(self, task: Dict) -> float:
+        """Assess task complexity based on various factors"""
+        duration = task.get('estimated_duration', 60)
+        description = task.get('description', '').lower()
+        title = task.get('title', '').lower()
+        
+        complexity = 0.5  # Base complexity
+        
+        # Adjust based on duration
+        if duration > 180:  # 3+ hours
+            complexity += 0.3
+        elif duration > 120:  # 2+ hours
+            complexity += 0.2
+        elif duration > 60:  # 1+ hours
+            complexity += 0.1
+        
+        # Adjust based on keywords in description/title
+        complex_keywords = ['complex', 'difficult', 'challenging', 'detailed', 'analysis', 'technical', 'report']
+        simple_keywords = ['simple', 'easy', 'quick', 'routine', 'basic', 'shopping', 'sync']
+        
+        text = f"{title} {description}"
+        if any(keyword in text for keyword in complex_keywords):
+            complexity += 0.2
+        if any(keyword in text for keyword in simple_keywords):
+            complexity -= 0.2
+        
+        return max(0.1, min(1.0, complexity))
+    
+    def _get_mood_adjustment(self, mood_state: MoodState, task: Dict) -> float:
+        """Get adjustment factor based on mood and task type"""
+        adjustments = {
+            MoodState.ENERGETIC: {
+                'complex': 1.2,  # Good for complex tasks
+                'physical': 1.1,  # Good for physical tasks
+                'creative': 1.3   # Great for creative tasks
+            },
+            MoodState.TIRED: {
+                'complex': 0.6,   # Bad for complex tasks
+                'physical': 0.7,  # Bad for physical tasks
+                'simple': 1.1     # Good for simple tasks
+            },
+            MoodState.FOCUSED: {
+                'complex': 1.4,   # Excellent for complex tasks
+                'detailed': 1.3,  # Great for detailed work
+                'creative': 0.9   # Okay for creative tasks
+            },
+            MoodState.SCATTERED: {
+                'complex': 0.5,   # Bad for complex tasks
+                'simple': 1.2,    # Good for simple tasks
+                'varied': 1.1     # Good for varied tasks
+            }
+        }
+        
+        # Determine task type
+        task_type = self._classify_task_type(task)
+        adjustment = adjustments[mood_state].get(task_type, 1.0)
+        
+        return adjustment
+    
+    def _classify_task_type(self, task: Dict) -> str:
+        """Classify task into a type based on its properties"""
+        description = task.get('description', '').lower()
+        title = task.get('title', '').lower()
+        category = task.get('category', '').lower()
+        
+        text = f"{title} {description} {category}"
+        
+        if any(word in text for word in ['analy', 'complex', 'detail', 'calculat', 'report', 'technical']):
+            return 'complex'
+        elif any(word in text for word in ['creative', 'design', 'write', 'compose', 'presentation']):
+            return 'creative'
+        elif any(word in text for word in ['physical', 'exercise', 'walk', 'move', 'shopping']):
+            return 'physical'
+        elif any(word in text for word in ['simple', 'routine', 'basic', 'quick', 'sync', 'meeting']):
+            return 'simple'
+        elif any(word in text for word in ['varied', 'multiple', 'different']):
+            return 'varied'
+        else:
+            return 'general'
+    
+    def _apply_stress_rules(self, tasks: List[Dict], stress_level: int, stress_reasons: List[str]) -> List[Dict]:
+        """Apply stress-based rules to prioritize and modify tasks"""
+        # Sort by overall priority
+        tasks.sort(key=lambda x: x['analysis']['overall_priority'], reverse=True)
+        
+        # Apply stress-specific modifications
+        if stress_level >= self.stress_rules["high_stress"]["threshold"]:
+            tasks = self._apply_high_stress_rules(tasks, stress_reasons)
+        elif stress_level >= self.stress_rules["medium_stress"]["threshold"]:
+            tasks = self._apply_medium_stress_rules(tasks)
+        else:
+            tasks = self._apply_low_stress_rules(tasks)
+        
+        return tasks
+    
+    def _apply_high_stress_rules(self, tasks: List[Dict], stress_reasons: List[str]) -> List[Dict]:
+        """Apply rules for high stress situations"""
+        modified_tasks = []
+        
+        for task in tasks:
+            # For high stress, simplify complex tasks
+            if task['analysis']['complexity_score'] > 0.7:
+                modified_task = self._simplify_task_for_stress(task, stress_reasons)
+                modified_tasks.append(modified_task)
+            else:
+                modified_tasks.append(task)
+        
+        return modified_tasks
+    
+    def _simplify_task_for_stress(self, task: Dict, stress_reasons: List[str]) -> Dict:
+        """Simplify a complex task for high stress situations"""
+        simplified_task = task.copy()
+        
+        # Add simplification suggestions
+        simplification_notes = [
+            "Consider breaking this complex task into smaller steps",
+            "Focus on the most critical parts first",
+            "Take frequent breaks during this task"
+        ]
+        
+        if 'analysis' not in simplified_task:
+            simplified_task['analysis'] = {}
+        
+        simplified_task['analysis']['simplification_notes'] = simplification_notes
+        simplified_task['analysis']['recommended_duration'] *= 1.2  # Add buffer time
+        
+        return simplified_task
+    
+    def _apply_medium_stress_rules(self, tasks: List[Dict]) -> List[Dict]:
+        """Apply rules for medium stress situations"""
+        # For medium stress, just return tasks as-is but sorted by priority
+        return tasks
+    
+    def _apply_low_stress_rules(self, tasks: List[Dict]) -> List[Dict]:
+        """Apply rules for low stress situations"""
+        # For low stress, we can be more ambitious
+        for task in tasks:
+            if task['analysis']['complexity_score'] > 0.6:
+                # Add challenge note for low stress
+                if 'analysis' not in task:
+                    task['analysis'] = {}
+                task['analysis']['challenge_note'] = "Good opportunity to tackle this challenging task"
+        
+        return tasks
+    
+    def _create_optimized_schedule(self, tasks: List[Dict], time_blocks: List[Dict], 
+                                 stress_level: int, mood_state: MoodState) -> List[Dict]:
+        """Create an optimized schedule considering all factors"""
+        schedule = []
+        
+        # Simple scheduling: just assign tasks to available blocks in priority order
+        available_blocks = [block for block in time_blocks if block.get('is_available', True)]
+        
+        for task in tasks:
+            if available_blocks:
+                # Use the first available block
+                time_block = available_blocks.pop(0)
+                scheduled_item = {
+                    'task': task,
+                    'time_block': time_block,
+                    'scheduling_notes': self._generate_scheduling_notes(task, time_block, stress_level, mood_state)
+                }
+                schedule.append(scheduled_item)
+        
+        return schedule
+    
+    def _generate_scheduling_notes(self, task: Dict, time_block: Dict, 
+                                 stress_level: int, mood_state: MoodState) -> List[str]:
+        """Generate scheduling notes for a task"""
+        notes = []
+        
+        if stress_level > 7:
+            notes.append("High stress level - consider simplifying this task")
+        
+        if task['analysis']['complexity_score'] > 0.7:
+            notes.append("Complex task - allocate focused time")
+        
+        if 'deadline' in task:
+            notes.append(f"Deadline: {task['deadline']}")
+        
+        return notes
+    
+    def _generate_insights(self, schedule: List[Dict], stress_level: int, mood_state: MoodState) -> Dict:
+        """Generate insights about the schedule"""
+        total_work_time = sum(
+            item['task'].get('estimated_duration', 0) 
+            for item in schedule 
+        ) / 60  # Convert to hours
+        
+        return {
+            "total_work_hours": total_work_time,
+            "stress_impact": self._assess_stress_impact(stress_level),
+            "mood_compatibility": self._assess_mood_compatibility(mood_state, schedule),
+            "recommended_adjustments": self._generate_recommendations(stress_level, total_work_time)
+        }
+    
+    def _assess_stress_impact(self, stress_level: int) -> str:
+        """Assess how stress impacts scheduling"""
+        if stress_level >= 8:
+            return "High stress significantly limits task capacity and requires simplification"
+        elif stress_level >= 5:
+            return "Moderate stress affects task selection and requires careful scheduling"
+        else:
+            return "Low stress allows for optimal task scheduling and productivity"
+    
+    def _assess_mood_compatibility(self, mood_state: MoodState, schedule: List[Dict]) -> str:
+        """Assess mood compatibility with scheduled tasks"""
+        return f"Tasks are generally compatible with {mood_state.value} mood"
+    
+    def _generate_recommendations(self, stress_level: int, total_hours: float) -> List[str]:
+        """Generate recommendations based on stress level"""
+        recommendations = []
+        
+        if stress_level >= 8:
+            recommendations.extend([
+                "Limit work to 6 hours or less",
+                "Break complex tasks into smaller steps",
+                "Schedule frequent short breaks",
+                "Consider postponing non-urgent tasks"
+            ])
+        elif stress_level >= 5:
+            recommendations.extend([
+                "Maintain reasonable 8-hour work limit",
+                "Balance complex and simple tasks",
+                "Include moderate breaks",
+                "Monitor energy levels throughout day"
+            ])
+        
+        if total_hours > 8:
+            recommendations.append("Consider reducing total work hours to prevent burnout")
+        
+        return recommendations
+
+    def _get_priority_distribution(self, tasks: List[Dict]) -> Dict[str, int]:
+        """Get distribution of task priorities"""
+        distribution = {'high': 0, 'medium': 0, 'low': 0}
+        for task in tasks:
+            priority = task.get('priority', 'medium')
+            if priority in distribution:
+                distribution[priority] += 1
+        return distribution
+    
+    def _calculate_deadline_pressure(self, tasks: List[Dict]) -> float:
+        """Calculate overall deadline pressure"""
+        if not tasks:
+            return 0.0
+        
+        total_urgency = sum(self._calculate_urgency_score(task) for task in tasks)
+        return total_urgency / len(tasks)
+    
+    def _get_stress_actions(self, stress_level: int) -> List[str]:
+        """Get recommended actions based on stress level"""
+        if stress_level >= 7:
+            return self.stress_rules["high_stress"]["actions"]
+        elif stress_level >= 4:
+            return self.stress_rules["medium_stress"]["actions"]
+        else:
+            return self.stress_rules["low_stress"]["actions"]
+
+    # Helper methods
+    def _parse_mood_state(self, mood: str) -> MoodState:
+        """Parse mood string into MoodState enum"""
+        try:
+            return MoodState[mood.upper()]
+        except KeyError:
+            return MoodState.FOCUSED  # Default to focused
+    
+    def _adjust_duration_for_stress(self, duration: int, stress_level: int) -> int:
+        """Adjust task duration based on stress level"""
+        adjustment_factor = 1.0 + (stress_level * 0.1)  # 10% longer per stress level
+        return int(duration * adjustment_factor)
