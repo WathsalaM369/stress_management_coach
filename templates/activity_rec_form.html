@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-success text-white">
+        <h4 class="mb-0">📊 Get Stress Management Recommendations</h4>
+    </div>
+    <div class="card-body">
+        {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+        
+        <form method="POST">
+            <div class="mb-3">
+                <label for="username" class="form-label">Username *</label>
+                <input type="text" class="form-control" id="username" name="username" placeholder="Enter your username" required>
+                <div class="form-text">Enter the username you created during registration</div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="stress_level" class="form-label">Current Stress Level *</label>
+                <select class="form-select" id="stress_level" name="stress_level" required>
+                    <option value="">Select stress level...</option>
+                    <option value="Low">Low - Feeling good, preventive care</option>
+                    <option value="Medium">Medium - Some stress, need balance</option>
+                    <option value="High">High - Very stressed, need quick relief</option>
+                </select>
+            </div>
+            
+            <div class="mb-3">
+                <label for="available_minutes" class="form-label">Available Time (minutes) *</label>
+                <input type="number" class="form-control" id="available_minutes" name="available_minutes" value="10" min="1" max="60" required>
+                <div class="form-text">How much time do you have right now?</div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="user_text" class="form-label">How are you feeling? (Optional - We'll detect stress level automatically)</label>
+                <textarea class="form-control" id="user_text" name="user_text" rows="3" placeholder="Example: I'm feeling overwhelmed with work and deadlines..."></textarea>
+            </div>
+            
+            <button type="submit" class="btn btn-success">Get Personalized Recommendations</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Home</a>
+        </form>
+        
+        
+    </div>
+</div>
+{% endblock %}

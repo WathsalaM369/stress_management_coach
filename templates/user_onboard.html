@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">👤 User Registration</h4>
+    </div>
+    <div class="card-body">
+        {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+        
+        <form method="POST">
+            <div class="mb-3">
+                <label for="username" class="form-label">Username *</label>
+                <input type="text" class="form-control" id="username" name="username" required>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">Activities You Like</label>
+                <div class="mb-2">
+                    <strong>Activities:</strong>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="likes" value="5-Minute Breathing Exercise" id="breathing">
+                        <label class="form-check-label" for="breathing">5-Minute Breathing Exercise</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="likes" value="10-Minute Guided Meditation" id="meditation">
+                        <label class="form-check-label" for="meditation">10-Minute Guided Meditation</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="likes" value="15-Minute Evening Walk" id="walk">
+                        <label class="form-check-label" for="walk">15-Minute Evening Walk</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="likes" value="Quick Journaling" id="journal">
+                        <label class="form-check-label" for="journal">Quick Journaling</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="likes" value="Stretch Break" id="stretch">
+                        <label class="form-check-label" for="stretch">Stretch Break</label>
+                    </div>
+                </div>
+                
+                <!-- Custom Activities Section -->
+                <div class="mb-2">
+                    <strong>Your Custom Activities:</strong>
+                    <div id="custom-activities">
+                        <div class="input-group mb-2">
+                            <input type="text" class="form-control" name="custom_activities" placeholder="Enter your favorite activity">
+                            <button type="button" class="btn btn-outline-secondary" onclick="addCustomActivity()">+ Add</button>
+                        </div>
+                    </div>
+                    <small class="text-muted">Add your own stress-relief activities</small>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="default_time" class="form-label">Default Available Time (minutes)</label>
+                <select class="form-select" id="default_time" name="default_time">
+                    <option value="5">5 minutes</option>
+                    <option value="10" selected>10 minutes</option>
+                    <option value="15">15 minutes</option>
+                    <option value="20">20 minutes</option>
+                </select>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Create Account</button>
+        </form>
+    </div>
+</div>
+
+<script>
+function addCustomActivity() {
+    const container = document.getElementById('custom-activities');
+    const input = container.querySelector('input[name="custom_activities"]');
+    const activity = input.value.trim();
+    
+    if (activity) {
+        // Create a new checkbox for the custom activity
+        const div = document.createElement('div');
+        div.className = 'form-check';
+        div.innerHTML = `
+            <input class="form-check-input" type="checkbox" name="likes" value="${activity}" id="custom_${Date.now()}" checked>
+            <label class="form-check-label" for="custom_${Date.now()}">${activity}</label>
+        `;
+        container.appendChild(div);
+        
+        // Clear the input
+        input.value = '';
+    }
+}
+</script>
+{% endblock %}

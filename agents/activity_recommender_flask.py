@@ -142,3 +142,22 @@ def get_recommendations():
     ]
     
     return jsonify({'recommendations': recommendations})
+
+@activity_bp.route('/users', methods=['GET'])
+def get_all_users():
+    """Get list of all registered users"""
+    try:
+        db = next(get_db())
+        users = db.query(DBUser).all()
+        
+        users_list = []
+        for user in users:
+            users_list.append({
+                'id': user.id,
+                'username': user.username,
+                'preferences': user.preferences
+            })
+        
+        return jsonify(users_list)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
