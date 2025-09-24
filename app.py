@@ -3,6 +3,8 @@ from agents.activity_recommender_flask import activity_bp
 import requests
 import json
 
+
+
 app = Flask(__name__)
 
 # Simple mock for stress estimation
@@ -21,7 +23,7 @@ class MockStressEstimator:
 
 agent = MockStressEstimator()
 
-# Register your activity recommender blueprint
+# Register  activity recommender blueprint
 app.register_blueprint(activity_bp, url_prefix='/api/activity_recommender')
 
 # Web Routes
@@ -33,26 +35,21 @@ def index():
 def onboard():
     if request.method == 'POST':
         username = request.form.get('username')
-        likes = request.form.getlist('likes')  # This now includes custom activities
+        likes = request.form.getlist('likes')
         default_time = int(request.form.get('default_time', 10))
         
-        # Get custom activities from the form
-        custom_activity = request.form.get('custom_activities', '').strip()
-        if custom_activity and custom_activity not in likes:
-            likes.append(custom_activity)
-        
-        # Debug: Print what we're sending
-        print(f"Creating user: {username}")
-        print(f"Likes: {likes}")
-        print(f"Default time: {default_time}")
+        print(f"DEBUG: Creating user '{username}' with likes: {likes}")  # Debug line
         
         try:
             # Create user via API
             response = requests.post(
                 'http://localhost:5000/api/activity_recommender/users',
                 json={'username': username},
-                timeout=10
+                timeout=5
             )
+            
+            print(f"DEBUG: Response status: {response.status_code}")  # Debug line
+            print(f"DEBUG: Response content: {response.text}")  # Debug line
             
             if response.status_code == 201:
                 user_data = response.json()
@@ -65,19 +62,29 @@ def onboard():
                         'likes': likes, 
                         'default_available_minutes': default_time
                     },
-                    timeout=10
+                    timeout=5
                 )
+                
+                print(f"DEBUG: Preferences response: {pref_response.status_code}")  # Debug line
                 
                 if pref_response.status_code == 200:
                     return redirect(url_for('recommend_success', user_id=user_id))
                 else:
                     return render_template('user_onboard.html', error="Error setting preferences")
             else:
-                error_msg = response.json().get('error', 'Username already exists')
+                # Try to get error message from response
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('error', 'Unknown error')
+                except:
+                    error_msg = f"Server returned status {response.status_code}"
+                
                 return render_template('user_onboard.html', error=error_msg)
                 
         except requests.exceptions.RequestException as e:
             return render_template('user_onboard.html', error=f"Connection error: {str(e)}")
+        except Exception as e:
+            return render_template('user_onboard.html', error=f"Unexpected error: {str(e)}")
     
     return render_template('user_onboard.html')
 

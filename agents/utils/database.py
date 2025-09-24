@@ -1,6 +1,6 @@
 # agents/utils/database.py
-from sqlalchemy import create_engine, Column, Integer, String, JSON
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy import create_engine, Column, Integer, String, JSON,ForeignKey 
+from sqlalchemy.orm import declarative_base, sessionmaker,relationship
 from config import settings
 
 # Setup for SQLAlchemy
@@ -25,6 +25,20 @@ class DBUser(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     preferences = Column(JSON, default={"likes": [], "dislikes": [], "default_available_minutes": 10})
+
+#custome activities table
+class DBCustomActivity(Base):
+    __tablename__ = "custom_activities"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    name = Column(String, index=True)
+    description = Column(String)
+    duration_minutes = Column(Integer)
+    category = Column(String, default="custom")
+    
+    # Relationship
+    user = relationship("DBUser", backref="custom_activities")
 
 # Create all tables
 Base.metadata.create_all(bind=engine)
