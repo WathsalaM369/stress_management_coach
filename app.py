@@ -1,6 +1,5 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from agents.stress_estimator import StressEstimator
-
 from datetime import datetime, timedelta
 import json
 from agents.task_scheduler import AdaptiveTaskScheduler, Task, TaskPriority, MoodState, TimeBlock, BreakActivity
@@ -10,6 +9,12 @@ app = Flask(__name__)
 agent = StressEstimator()
 task_scheduler = AdaptiveTaskScheduler()
 
+# Serve the main page
+@app.route('/')
+def index():
+    return render_template('task_scheduler.html')
+
+# API Routes
 @app.route('/estimate_stress', methods=['POST'])
 def estimate_stress():
     data = request.get_json()
@@ -20,14 +25,6 @@ def estimate_stress():
     
     result = agent.estimate_stress_level(text)
     return jsonify(result)
-
-@app.route('/health', methods=['GET'])
-def health_check():
-    return jsonify({'status': 'healthy'})
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
-
 
 @app.route('/schedule_tasks', methods=['POST'])
 def schedule_tasks():
@@ -60,4 +57,11 @@ def schedule_tasks():
         return jsonify(result)
         
     except Exception as e:
-        return jsonify({'error': f'Scheduling failed: {str(e)}'}), 500    
+        return jsonify({'error': f'Scheduling failed: {str(e)}'}), 500
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'healthy'})
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
