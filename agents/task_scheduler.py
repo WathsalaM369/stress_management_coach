@@ -9,16 +9,62 @@ from enum import Enum
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+class TaskPriority(Enum):
+    HIGH = "high"
+    MEDIUM = "medium" 
+    LOW = "low"
+
 class MoodState(Enum):
     ENERGETIC = "energetic"
-    TIRED = "tired"
+    TIRED = "tired" 
     FOCUSED = "focused"
     SCATTERED = "scattered"
 
-class TaskPriority(Enum):
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
+class Task:
+    """Represents a task with priority and time requirements"""
+    def __init__(self, name: str, duration: int, priority: TaskPriority, deadline: Optional[datetime] = None):
+        self.name = name
+        self.duration = duration  # in minutes
+        self.priority = priority
+        self.deadline = deadline
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "duration": self.duration,
+            "priority": self.priority.value,
+            "deadline": self.deadline.isoformat() if self.deadline else None
+        }
+
+class TimeBlock:
+    """Represents a time block for scheduling"""
+    def __init__(self, start_time: datetime, end_time: datetime, task: Optional[Task] = None):
+        self.start_time = start_time
+        self.end_time = end_time
+        self.task = task
+        self.duration = (end_time - start_time).total_seconds() / 60  # minutes
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "start_time": self.start_time.isoformat(),
+            "end_time": self.end_time.isoformat(),
+            "task": self.task.to_dict() if self.task else None,
+            "duration": self.duration
+        }
+
+class BreakActivity:
+    """Represents a break activity"""
+    def __init__(self, name: str, duration: int, type: str = "relaxation"):
+        self.name = name
+        self.duration = duration
+        self.type = type
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "duration": self.duration,
+            "type": self.type
+        }
 
 class AdaptiveTaskScheduler:
     def __init__(self):

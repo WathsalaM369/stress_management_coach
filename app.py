@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from agents.stress_estimator import StressEstimatorAgent
+from agents.stress_estimator import StressEstimator
 
 from datetime import datetime, timedelta
 import json
@@ -7,7 +7,7 @@ from agents.task_scheduler import AdaptiveTaskScheduler, Task, TaskPriority, Moo
 from config import config
 
 app = Flask(__name__)
-agent = StressEstimatorAgent()
+agent = StressEstimator()
 task_scheduler = AdaptiveTaskScheduler()
 
 @app.route('/estimate_stress', methods=['POST'])
