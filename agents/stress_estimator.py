@@ -1,8 +1,8 @@
 # The core stress detection agent that analyzes text input and returns stress levels.
 
 import numpy as np
-from flask import Flask, request, jsonify  # create the web API
-from flask_cors import CORS
+from flask import Flask, request, jsonify  # Creates a web server to handle HTTP requests
+from flask_cors import CORS  #Allows web pages from different domains to access  API
 import re
 import json
 from datetime import datetime
@@ -14,7 +14,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from utils.text_preprocessor import preprocess_text, sanitize_input, extract_stress_keywords
 
-# Flask Web Server Setup
+# Flask Web Server Setup(Sets up the web application with cross-origin support)
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
@@ -41,7 +41,9 @@ def simple_sentiment_analysis(text):
         'dislike': 1.5, 'angry': 1.5, 'mad': 1.5, 'upset': 1.5, 'sad': 1.5,
         'unhappy': 1.5, 'depressed': 2, 'anxious': 2, 'worried': 1.5,
         'stressed': 2.5, 'overwhelmed': 2.5, 'tired': 1, 'exhausted': 1.5,
-        'frustrated': 1.5, 'annoyed': 1, 'problem': 1, 'issue': 1,
+        'frustrated': 2.0,'furious': 2.5, 'annoyed': 1.5, 'irritated': 1.5,
+        'problem': 1, 'issue': 1,'burntout': 2.5, 'burnout': 2.5, 'fatigued': 1.5, 'weary': 1.5,    
+        'pressure': 1.5, 'pressured': 1.5, 'swamped': 2.0, 'burdened': 1.5, 
         'difficult': 1, 'hard': 1, 'challenging': 0.5, 'struggle': 1.5,
         'panic': 2, 'nervous': 1.5, 'scared': 1.5, 'afraid': 1.5,
         'hopeless': 2, 'helpless': 2, 'lost': 1.5
@@ -57,7 +59,7 @@ def simple_sentiment_analysis(text):
     # Negation words
     negations = {'not', 'no', 'never', 'none', 'nothing', 'nobody', 'nowhere', "n't"}
 
-    words = text.lower().split()
+    words = text.lower().split()   # Convert to lowercase and split into words
     sentiment_score = 0.0
     current_intensifier = 1.0
     negation_window = 0  # number of tokens left for which negation applies
@@ -65,7 +67,7 @@ def simple_sentiment_analysis(text):
     for word in words:
         # if this token is an intensifier, set multiplier (negation window still counts down)
         if word in intensifiers:
-            current_intensifier = intensifiers[word]
+            current_intensifier = intensifiers[word]   # Process: Finds "very" → sets current_intensifier = 1.5,Meaning: Next emotional word will be multiplied by 1.5×
         elif word in negations:
             # open a small negation window (applies to next up to N tokens)
             negation_window = 3
@@ -102,16 +104,21 @@ def simple_sentiment_analysis(text):
         'compound': normalized_score,
         'positive': max(0.0, normalized_score),
         'negative': max(0.0, -normalized_score),
-        'neutral': 1.0 - abs(normalized_score)
+        'neutral': 1.0 - abs(normalized_score)  #Measures how neutral/balanced the text is
+        #If normalized_score = 0.0 → neutral = 1.0 (completely neutral)
+        #If normalized_score = ±0.9 → neutral = 0.1 (very emotional)
     }
+
+#Sets scoring thresholds: Low (0-3), Medium (3-6), High (6-10)
+#Creates empty dictionary to store user history in memory
 
 class StressEstimator:
     def __init__(self):
         # thresholds (unchanged)
         self.stress_thresholds = {'low': 3.0, 'medium': 6.0, 'high': 10.0}
-        self.stress_history = {}
+        self.stress_history = {}   # Creates an empty dictionary to store user data
         self.sample_data = self.load_sample_data()
-
+    #options to load sample data for testing
     def load_sample_data(self):
         try:
             sample_data_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'sample_stress_data.csv')
@@ -121,22 +128,23 @@ class StressEstimator:
         except:
             return None
 
-    def analyze_sentiment(self, text):
+    def analyze_sentiment(self, text): #Takes text input, uses simple_sentiment_analysis to return sentiment scores
         return simple_sentiment_analysis(text)
-
+ 
+    #Stress Score Calculation
     def estimate_stress_level(self, text, user_id=None):
-        # Preprocess and then use cleaned text for sentiment and keyword extraction
+        # 1.Preprocess and then use cleaned text for sentiment and keyword extraction
         cleaned_text = preprocess_text(text)
 
-        # Sentiment & keywords on the cleaned text
+        # 2.Sentiment & keywords on the cleaned text
         sentiment_scores = self.analyze_sentiment(cleaned_text)
         stress_keywords = extract_stress_keywords(cleaned_text)
 
-        # Base score from sentiment: compound in [-1,1]
+        #3. Base score from sentiment: compound in [-1,1]
         # (1 - compound) * 2.5 --> range 0..5
         base_score = (1.0 - sentiment_scores['compound']) * 2.5
 
-        # Keyword adjustment: scale depends on sentiment polarity strength
+        # 4.Keyword adjustment: scale depends on sentiment polarity strength
         if sentiment_scores['compound'] < -0.3:
             # strongly negative sentiment -> keywords matter more
             keyword_adjustment = min(len(stress_keywords) * 1.5, 3.0)
@@ -147,14 +155,14 @@ class StressEstimator:
             # neutral -> moderate weight
             keyword_adjustment = min(len(stress_keywords) * 1.0, 2.0)
 
-        # Length adjustment (rumination signal) up to 2 points
+        # 5.Length adjustment (rumination signal) up to 2 points
         length_adjustment = min(len(cleaned_text.split()) * 0.1, 2.0)
 
         # Punctuation adjustment (exclamation intensity) up to 1 point
         exclamation_count = cleaned_text.count('!')
         punctuation_adjustment = min(exclamation_count * 0.2, 1.0)
 
-        # Final score clamp to 0-10
+        # 7.Final score(combine all factors) clamp to 0-10
         final_score = min(base_score + keyword_adjustment + length_adjustment + punctuation_adjustment, 10.0)
         final_score = max(0.0, final_score)
 
@@ -179,7 +187,7 @@ class StressEstimator:
             "sentiment_scores": sentiment_scores,
             "input_text": text
         }
-
+    #Generates explanation based on stress level, keywords, sentiment, and text length
     def generate_explanation(self, level, keywords, sentiment_scores, score, original_text):
         explanations = {
             "Low": [
@@ -220,24 +228,30 @@ class StressEstimator:
 
         return base_explanation
 
+    #In-Memory Storage for User Stress History
     def update_stress_history(self, user_id, score, level):
         if user_id not in self.stress_history:
             self.stress_history[user_id] = []
+         # Add new record with timestamp   
         self.stress_history[user_id].append({
             "timestamp": datetime.now().isoformat(),
             "score": score,
             "level": level
         })
+         # Keep only last 100 entries (memory management)
         if len(self.stress_history[user_id]) > 100:
             self.stress_history[user_id] = self.stress_history[user_id][-100:]
 
+    #Simple trend analysis over last 5 entries
     def get_stress_trend(self, user_id):
         if user_id not in self.stress_history or len(self.stress_history[user_id]) < 2:
             return None
         history = self.stress_history[user_id]
+         # Get last 5 scores
         recent_scores = [entry['score'] for entry in history[-5:]]
         if len(recent_scores) < 2:
             return "stable"
+         # Calculate linear trend using numpy
         trend = np.polyfit(range(len(recent_scores)), recent_scores, 1)[0]
         if trend > 0.5:
             return "increasing"
@@ -291,6 +305,6 @@ def get_stress_history(user_id):
             "history": [],
             "count": 0
         })
-
+#Server Startup
 if __name__ == '__main__':
     app.run(port=5001, debug=True)

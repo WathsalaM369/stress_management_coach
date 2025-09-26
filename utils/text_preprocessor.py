@@ -2,7 +2,7 @@ import re
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-
+#Make sure the required NLTK datasets (punkt for tokenization, stopwords for filtering) are available.
 def safe_download_nltk_data():
     """Safely download required NLTK data with error handling"""
     try:
@@ -34,6 +34,7 @@ def safe_download_nltk_data():
 # Try to download NLTK data
 nltk_data_available = safe_download_nltk_data()
 
+#Preprocessing Function – preprocess_text(text)
 def preprocess_text(text):
     """
     Preprocess text by cleaning and tokenizing
@@ -54,8 +55,20 @@ def preprocess_text(text):
         # Tokenize
         tokens = word_tokenize(text)
         
-        # Remove stopwords
+          # Remove stopwords but keep negations & intensifiers
         stop_words = set(stopwords.words('english'))
+        
+        # Words we want to preserve
+        negations = {'not', 'no', 'never', 'none', 'nothing', 'nobody', 'nowhere', "n't"}
+        intensifiers = {
+            "very", "really", "extremely", "quite",
+            "too", "so", "absolutely", "completely",
+            "totally", "utterly"
+        }
+        
+        # Exclude negations and intensifiers from stopword list
+        stop_words = stop_words - negations - intensifiers
+        
         filtered_tokens = [word for word in tokens if word not in stop_words]
         
         return ' '.join(filtered_tokens)
@@ -63,6 +76,11 @@ def preprocess_text(text):
         print(f"Error in preprocessing: {e}")
         # Fallback to simple processing
         return text
+
+#Purpose: Protect against malicious input (security).
+""" Steps:
+1.Removes dangerous characters like <, >, {, } (to prevent code/HTML injection).
+2.Truncates text if length > 1000 characters (to prevent denial-of-service by huge input).   """
 
 def sanitize_input(text):
     """
@@ -77,18 +95,22 @@ def sanitize_input(text):
         
     return text
 
+#Keyword Extraction Function – extract_stress_keywords(text)
 def extract_stress_keywords(text):
     """
     Extract stress-related keywords using pattern matching
     """
     stress_patterns = [
-    r'\b(stress|stressed|stressful|overwhelm|overwhelmed|anxious|anxiety)\b',
-    r'\b(worry|worried|pressure|pressured|burntout|burnout|exhausted)\b',
-    r'\b(deadline|exam|test|presentation|interview|meeting|assignment)\b',
-    r'\b(can\'t cope|can\'t handle|too much|so much|drowning|overloaded)\b',
-    r'\b(panic|nervous|tense|frustrated|annoyed|irritated|angry|mad)\b',  # Added more
-    r'\b(depressed|sad|unhappy|miserable|hopeless|helpless|lost)\b'       # Added more
-]
+        r'\b(stress|stressed|stressful|overwhelm|overwhelmed|anxious|anxiety)\b',
+        r'\b(worry|worried|pressure|pressured|burntout|burnout|exhausted)\b',
+        r'\b(deadline|exam|test|presentation|interview|meeting|assignment)\b',
+        r'\b(can\'t cope|can\'t handle|too much|so much|drowning|overloaded)\b',
+        r'\b(panic|nervous|tense|frustrated|annoyed|irritated|angry|mad)\b',
+        r'\b(depressed|sad|unhappy|miserable|hopeless|helpless|lost)\b',
+        r'\b(frustrated|angry|furious|annoyed|irritated)\b',  # ADDED: anger-related
+        r'\b(burnt out|burned out|exhausted|fatigued|tired|weary)\b',  # ADDED: exhaustion
+        r'\b(pressure|pressured|overwhelmed|swamped|burdened)\b'  # ADDED: pressure
+    ]
     
     keywords = []
     for pattern in stress_patterns:
