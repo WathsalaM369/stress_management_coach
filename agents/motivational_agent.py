@@ -25,7 +25,7 @@ class MotivationalAgent:
             and has mentioned: "{user_message}". They've been recommended to try: {recommended_activity}.
             
             Please provide a gentle, empathetic, and supportive message that:
-            
+            1. Validates their feelings and experience
             2. Encourages them gently to try the recommended activity
             3. Offers hope and reassurance
             4. Is concise (2-3 sentences maximum)
