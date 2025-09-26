@@ -1,13 +1,22 @@
 from flask import Flask, request, jsonify, render_template
 from agents.stress_estimator import StressEstimator
 from datetime import datetime, timedelta
+from flask_cors import CORS
 import json
 from agents.task_scheduler import AdaptiveTaskScheduler, Task, TaskPriority, MoodState, TimeBlock, BreakActivity
 from config import config
+from agents.task_scheduler import AITaskSchedulerAgent
+
 
 app = Flask(__name__)
+CORS(app)
+
+# Initialize AI agents
 agent = StressEstimator()
 task_scheduler = AdaptiveTaskScheduler()
+
+# Initialize with AI capabilities
+task_scheduler = AITaskSchedulerAgent(llm_api_key="your-openai-key")
 
 # Serve the main page
 @app.route('/')

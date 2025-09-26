@@ -3,26 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stress Management Coach</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/task_scheduler.css') }}">
+    <title>AI-Enhanced Stress Management Coach</title>
+    <link rel="stylesheet" href="static/css/task_scheduler.css">
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Stress Management Coach</h1>
-            <p>Task scheduling based on stress level and mood</p>
+            <h1>AI-Enhanced Stress Management Coach</h1>
+            <p>Intelligent task scheduling with multi-agent AI analysis</p>
         </div>
 
         <div class="card">
             <h2>Stress Analysis & Task Scheduling</h2>
-            
+           
             <div class="form-group">
                 <label>How are you feeling today?</label>
-                <textarea id="userText" class="form-control" placeholder="Describe your current situation..."></textarea>
+                <textarea id="userText" class="form-control" placeholder="Describe your current situation, workload, or any concerns..."></textarea>
             </div>
 
             <div class="form-group">
-                <label>Or set your Stress Level (1-10):</label>
+                <label>Current Stress Level (1-10):</label>
                 <input type="range" min="1" max="10" value="5" id="stressLevel" class="form-control">
                 <div id="stressDisplay" class="stress-display">Stress Level: 5/10</div>
             </div>
@@ -38,42 +38,71 @@
             </div>
 
             <div class="form-group">
-                <label>Tasks (one per line):</label>
-                <textarea id="tasksInput" class="form-control" placeholder="Enter your tasks..."></textarea>
+                <label>Tasks (Format: Task Title | Duration(min) | Priority | Deadline):</label>
+                <textarea id="tasksInput" class="form-control" placeholder="Complete project report | 120 | high | 2024-12-15
+Review team feedback | 45 | medium
+Update documentation | 60 | low | 2024-12-20"></textarea>
+                <small class="form-text">One task per line. Include duration in minutes, priority (high/medium/low), and optional deadline.</small>
             </div>
 
             <div class="form-group">
-                <label>Available Time Slots (format: 09:00-11:00 Description):</label>
-                <textarea id="timeSlots" class="form-control" placeholder="09:00-11:00 Morning work"></textarea>
+                <label>Available Time Slots (Format: HH:MM-HH:MM Description):</label>
+                <textarea id="timeSlots" class="form-control" placeholder="09:00-11:00 Morning focus time
+14:00-16:00 Afternoon work
+19:00-20:30 Evening tasks"></textarea>
+                <small class="form-text">One time slot per line with optional description.</small>
             </div>
 
             <div class="button-group">
-                <button class="btn btn-primary" onclick="analyzeAndSchedule()">Generate Schedule</button>
+                <button class="btn btn-primary" onclick="analyzeAndSchedule()">Generate AI Schedule</button>
                 <button class="btn btn-secondary" onclick="clearAll()">Clear All</button>
             </div>
         </div>
 
         <div id="loading" class="loading">
-            <div class="spinner">Loading...</div>
-            <div>Analyzing and creating schedule...</div>
+            <div class="spinner"></div>
+            <div>AI agents analyzing your stress, tasks, and optimal schedule...</div>
         </div>
 
         <div id="results" class="results">
             <div class="card">
-                <h2>Schedule Results</h2>
-                
+                <h2>AI Analysis Results</h2>
+               
+                <!-- Summary Stats -->
+                <div class="summary-stats">
+                    <div class="stat-item">
+                        <span class="stat-number" id="totalTasks">0</span>
+                        <span class="stat-label">Total Tasks</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="scheduledTasks">0</span>
+                        <span class="stat-label">Scheduled</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="totalHours">0h</span>
+                        <span class="stat-label">Work Hours</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="avgConfidence">0%</span>
+                        <span class="stat-label">AI Confidence</span>
+                    </div>
+                </div>
+
+                <!-- Stress Analysis -->
                 <div id="stressAnalysis" class="analysis-card">
-                    <h3>Stress Analysis</h3>
+                    <h3>AI Stress & Mood Analysis</h3>
                     <div id="stressResults"></div>
                 </div>
 
+                <!-- Schedule Results -->
                 <div id="scheduleResults">
-                    <h3>Recommended Schedule</h3>
+                    <h3>Optimized Schedule</h3>
                     <div id="scheduleItems"></div>
                 </div>
 
+                <!-- AI Recommendations -->
                 <div id="recommendations" class="recommendations-card">
-                    <h3>Recommendations</h3>
+                    <h3>AI Recommendations</h3>
                     <div id="recommendationsList"></div>
                 </div>
             </div>
@@ -81,7 +110,6 @@
     </div>
 
     <div id="messages"></div>
-
-    <script src="{{ url_for('static', filename='js/task_scheduler.js') }}"></script>
+    <script src="static/js/task_scheduler.js"></script>
 </body>
 </html>
