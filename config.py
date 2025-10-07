@@ -1,24 +1,13 @@
 #Vinushas
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 class Config:
-    # Model settings
-    MODEL_NAME = "j-hartmann/emotion-english-distilroberta-base"
-    MAX_LENGTH = 512
+    # Database
+    DATABASE_PATH = 'stress_data.db'
     
-    # Stress mapping
-    STRESS_MAPPING = {
-        'anger': 8,
-        'disgust': 7,
-        'fear': 9,
-        'joy': 2,
-        'neutral': 4,
-        'sadness': 9,
-        'surprise': 5
-    }
+    # Server
+    PORT = 5001
+    DEBUG = True
     
     # Thresholds
     HIGH_STRESS_THRESHOLD = 7
@@ -36,6 +25,12 @@ class Config:
     
     # API URLs
     BASE_URL = os.getenv("BASE_URL", "http://localhost")
+    
+    # AI Model Paths (for future enhancements) - from Wathsala
+    SENTIMENT_MODEL_PATH = 'models/sentiment_model'
+    
+    # Security - from Wathsala
+    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     
     @property
     def stress_estimator_url(self):

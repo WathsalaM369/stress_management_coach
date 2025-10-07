@@ -1,0 +1,13 @@
+{
+  "name": "stress-dashboard",
+  "version": "1.0.0",
+  "description": "Frontend dashboard for Stress Level Estimator",
+  "scripts": {
+    "start": "python server.py",
+    "dev": "python -m http.server 3000"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "http-proxy-middleware": "^3.0.5"
+  }
+}
