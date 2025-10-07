@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Personal Motivation Coach</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .motivation-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 800px;
+            width: 100%;
+            overflow: hidden;
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .motivation-header {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .motivation-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            animation: float 20s infinite linear;
+        }
+
+        @keyframes float {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .coach-avatar {
+            width: 80px;
+            height: 80px;
+            background: white;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        .stress-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .motivation-content {
+            padding: 40px;
+        }
+
+        .voice-selection {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid #667eea;
+        }
+
+        .voice-options {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .voice-option {
+            flex: 1;
+            min-width: 120px;
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .voice-option:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .voice-option.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .voice-icon {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .message-container {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-left: 5px solid #667eea;
+            position: relative;
+            min-height: 120px;
+        }
+
+        .typing-indicator {
+            display: none;
+            font-style: italic;
+            color: #666;
+        }
+
+        .motivation-text {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            color: #333;
+            opacity: 0;
+            animation: fadeIn 0.5s ease-out 0.3s forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .audio-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 20px 0;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 10px;
+        }
+
+        .play-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .play-button:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+
+        .play-button.playing {
+            background: #ee5a24;
+        }
+
+        .play-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .audio-visualizer {
+            flex: 1;
+            height: 4px;
+            background: #ddd;
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .audio-wave {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.1s ease;
+        }
+
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 30px 0;
+        }
+
+        .action-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .action-card:hover {
+            border-color: #667eea;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.15);
+        }
+
+        .action-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .progress-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 20px;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ee5a24);
+            border-radius: 4px;
+            transition: width 1s ease;
+        }
+
+        .next-steps {
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .breathing-exercise {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .breathing-circle {
+            width: 100px;
+            height: 100px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            animation: breathe 4s infinite ease-in-out;
+        }
+
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .achievement-badge {
+            background: gold;
+            color: #333;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin: 10px 5px;
+            display: inline-block;
+            animation: popIn 0.5s ease-out;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0); }
+            70% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        @media (max-width: 768px) {
+            .motivation-content {
+                padding: 20px;
+            }
+            
+            .actions-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .message-container {
+                padding: 20px;
+            }
+            
+            .voice-options {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="motivation-container">
+        <!-- Header Section -->
+        <div class="motivation-header">
+            <div class="header-content">
+                <div class="coach-avatar">💫</div>
+                <h1>Your Personal Motivation Coach</h1>
+                <div class="stress-badge" id="stressBadge">Stress Level: <span id="stressLevel">0</span>/10</div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="motivation-content">
+            <!-- Voice Selection -->
+            <div class="voice-selection">
+                <h3>🎵 Choose Your Coach's Voice</h3>
+                <p>Select the voice that feels most comforting to you</p>
+                <div class="voice-options">
+                    <div class="voice-option active" data-voice="female" onclick="selectVoice('female')">
+                        <span class="voice-icon">👩</span>
+                        <strong>Female Voice</strong>
+                        <small>Warm & comforting</small>
+                    </div>
+                    <div class="voice-option" data-voice="male" onclick="selectVoice('male')">
+                        <span class="voice-icon">👨</span>
+                        <strong>Male Voice</strong>
+                        <small>Calm & reassuring</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Motivational Message -->
+            <div class="message-container">
+                <div class="typing-indicator" id="typingIndicator">
+                    Your coach is crafting a personalized message...
+                </div>
+                <div class="motivation-text" id="motivationText">
+                    <!-- Message will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Audio Controls -->
+            <div class="audio-controls">
+                <button class="play-button" id="playButton" onclick="toggleAudio()" disabled>
+                    <span>🔊</span>
+                    <span id="playText">Listen to Message</span>
+                </button>
+                <div class="audio-visualizer">
+                    <div class="audio-wave" id="audioWave"></div>
+                </div>
+                <div id="currentVoice" style="font-size: 0.9rem; color: #666;">
+                    👩 Female
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="actions-grid">
+                <div class="action-card" onclick="startBreathingExercise()">
+                    <span class="action-icon">🌬️</span>
+                    <strong>Breathe</strong>
+                    <small>2-minute calm</small>
+                </div>
+                <a href="stress_tracker.html" class="action-card">
+                    <span class="action-icon">📊</span>
+                    <strong>Track Again</strong>
+                    <small>New assessment</small>
+                </a>
+                <div class="action-card" onclick="showAffirmations()">
+                    <span class="action-icon">💝</span>
+                    <strong>Affirmations</strong>
+                    <small>Positive boost</small>
+                </div>
+                <div class="action-card" onclick="saveMotivation()">
+                    <span class="action-icon">💾</span>
+                    <strong>Save</strong>
+                    <small>Keep this message</small>
+                </div>
+            </div>
+
+            <!-- Breathing Exercise -->
+            <div class="breathing-exercise" id="breathingExercise">
+                <h3>🌬️ Breathing Exercise</h3>
+                <p>Follow the circle - Breathe in as it expands, out as it contracts</p>
+                <div class="breathing-circle" id="breathingCircle">Breathe</div>
+                <button class="btn-primary" onclick="stopBreathingExercise()">I feel calmer</button>
+            </div>
+
+            <!-- Progress Tracking -->
+            <div class="progress-section">
+                <div class="progress-header">
+                    <h4>📈 Your Progress</h4>
+                    <span id="progressText">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+                <div id="achievementsContainer">
+                    <!-- Achievements will appear here -->
+                </div>
+            </div>
+
+            <!-- Next Steps -->
+            <div class="next-steps">
+                <button class="btn-primary" onclick="generateNewMotivation()">
+                    🔄 Get New Motivation
+                </button>
+                <p style="margin-top: 15px; color: #666; font-size: 0.9rem;">
+                    Your motivation coach is here whenever you need support
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentAudio = null;
+        let isPlaying = false;
+        let motivationData = null;
+        let currentVoice = "female"; // Default voice
+
+        // Voice selection function
+        function selectVoice(voice) {
+            currentVoice = voice;
+            
+            // Update UI
+            document.querySelectorAll('.voice-option').forEach(option => {
+                option.classList.remove('active');
+            });
+            document.querySelector(`[data-voice="${voice}"]`).classList.add('active');
+            
+            // Update voice indicator
+            const voiceIndicator = document.getElementById('currentVoice');
+            if (voice === 'female') {
+                voiceIndicator.innerHTML = '👩 Female';
+            } else {
+                voiceIndicator.innerHTML = '👨 Male';
+            }
+            
+            console.log(`Voice set to: ${voice}`);
+        }
+
+        // Initialize the motivation interface
+        function initializeMotivationInterface(stressLevel, stressCategory, userMessage = "") {
+            document.getElementById('stressLevel').textContent = stressLevel;
+            updateStressBadge(stressLevel, stressCategory);
+            
+            // Show typing indicator
+            document.getElementById('typingIndicator').style.display = 'block';
+            document.getElementById('motivationText').style.display = 'none';
+
+            // Call your motivation agent with voice preference
+            generateMotivationalMessage(stressLevel, stressCategory, userMessage, currentVoice);
+        }
+
+        // Generate motivational message using your Python backend
+        async function generateMotivationalMessage(stressLevel, stressCategory, userMessage, voiceGender) {
+            try {
+                const response = await fetch('/api/generate-motivation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        stress_level: stressLevel,
+                        stress_category: stressCategory,
+                        user_message: userMessage,
+                        generate_audio: true,
+                        voice_gender: voiceGender
+                    })
+                });
+
+                const data = await response.json();
+                motivationData = data;
+
+                // Display the message
+                displayMotivationalMessage(data.motivational_message);
+                
+                // Update progress
+                updateUserProgress(stressLevel);
+                
+                // Update voice indicator with actual voice used
+                const voiceIndicator = document.getElementById('currentVoice');
+                if (data.voice_used === 'female') {
+                    voiceIndicator.innerHTML = '👩 Female';
+                } else {
+                    voiceIndicator.innerHTML = '👨 Male';
+                }
+                
+            } catch (error) {
+                console.error('Error generating motivation:', error);
+                displayMotivationalMessage("I'm here to support you through this challenging time. Remember that every small step forward counts, and you're doing better than you think.");
+            }
+        }
+
+        // Display the motivational message with typing effect
+        function displayMotivationalMessage(message) {
+            const typingIndicator = document.getElementById('typingIndicator');
+            const motivationText = document.getElementById('motivationText');
+            const playButton = document.getElementById('playButton');
+            
+            // Hide typing indicator
+            typingIndicator.style.display = 'none';
+            
+            // Show and animate text
+            motivationText.style.display = 'block';
+            motivationText.textContent = message;
+            
+            // Add audio file path if available
+            if (motivationData && motivationData.audio_file_path) {
+                currentAudio = motivationData.audio_file_path;
+                playButton.disabled = false;
+                playButton.title = "Click to listen to the message";
+            } else {
+                playButton.disabled = true;
+                playButton.title = "Audio not available";
+            }
+        }
+
+        // Toggle audio playback
+        async function toggleAudio() {
+            const playButton = document.getElementById('playButton');
+            const playText = document.getElementById('playText');
+            const audioWave = document.getElementById('audioWave');
+
+            if (!isPlaying && currentAudio) {
+                // Start playing
+                playButton.classList.add('playing');
+                playText.textContent = 'Playing...';
+                isPlaying = true;
+                
+                try {
+                    // Call the play-audio endpoint
+                    const response = await fetch('/api/play-audio', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            audio_path: currentAudio
+                        })
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Simulate audio visualization
+                        animateAudioWave(audioWave);
+                    } else {
+                        console.error('Audio playback failed:', result.error);
+                        resetAudioControls();
+                    }
+                } catch (error) {
+                    console.error('Error playing audio:', error);
+                    resetAudioControls();
+                }
+                
+            } else {
+                resetAudioControls();
+            }
+        }
+
+        function animateAudioWave(audioWave) {
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 2;
+                audioWave.style.transform = `scaleX(${progress / 100})`;
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        resetAudioControls();
+                    }, 500);
+                }
+            }, 100);
+        }
+
+        function resetAudioControls() {
+            const playButton = document.getElementById('playButton');
+            const playText = document.getElementById('playText');
+            const audioWave = document.getElementById('audioWave');
+            
+            playButton.classList.remove('playing');
+            playText.textContent = 'Listen to Message';
+            audioWave.style.transform = 'scaleX(0)';
+            isPlaying = false;
+        }
+
+        // Breathing exercise
+        function startBreathingExercise() {
+            document.getElementById('breathingExercise').style.display = 'block';
+        }
+
+        function stopBreathingExercise() {
+            document.getElementById('breathingExercise').style.display = 'none';
+            showAchievement('Breathing Exercise Completed!');
+        }
+
+        // Update stress badge appearance based on level
+        function updateStressBadge(level, category) {
+            const badge = document.getElementById('stressBadge');
+            const colors = {
+                'Low': '#4CAF50',
+                'Medium': '#FF9800',
+                'High': '#F44336',
+                'Very High': '#9C27B0',
+                'Chronic High': '#673AB7'
+            };
+            
+            badge.style.background = `rgba(${hexToRgb(colors[category] || '#666')}, 0.2)`;
+        }
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? 
+                `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` 
+                : '102, 126, 234';
+        }
+
+        // Update user progress
+        function updateUserProgress(stressLevel) {
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            
+            // Calculate progress based on stress level (lower stress = higher progress)
+            const progress = Math.max(0, 100 - (stressLevel * 10));
+            
+            progressFill.style.width = `${progress}%`;
+            progressText.textContent = `${Math.round(progress)}%`;
+            
+            // Show achievements based on progress
+            if (progress >= 80) {
+                showAchievement('Wellness Champion! 🌟');
+            } else if (progress >= 60) {
+                showAchievement('Great Progress! 💪');
+            }
+        }
+
+        function showAchievement(text) {
+            const container = document.getElementById('achievementsContainer');
+            const badge = document.createElement('div');
+            badge.className = 'achievement-badge';
+            badge.textContent = text;
+            container.appendChild(badge);
+        }
+
+        // Generate new motivation with current voice preference
+        function generateNewMotivation() {
+            const stressLevel = parseFloat(document.getElementById('stressLevel').textContent);
+            const stressCategory = motivationData?.stress_category || 'Medium';
+            initializeMotivationInterface(stressLevel, stressCategory, '');
+        }
+
+        // Save motivation
+        function saveMotivation() {
+            const message = document.getElementById('motivationText').textContent;
+            // Here you would typically save to localStorage or send to backend
+            alert('Motivation saved to your favorites! 💾');
+            showAchievement('Message Saved!');
+        }
+
+        // Show affirmations
+        function showAffirmations() {
+            const affirmations = [
+                "You are capable of amazing things.",
+                "Your feelings are valid and important.",
+                "Progress, not perfection, is what matters.",
+                "You've survived 100% of your bad days so far.",
+                "This moment is just a moment, and it will pass."
+            ];
+            
+            const randomAffirmation = affirmations[Math.floor(Math.random() * affirmations.length)];
+            displayMotivationalMessage(`💝 Affirmation: ${randomAffirmation}`);
+        }
+
+        // Initialize with sample data (replace with actual data from your stress estimator)
+        window.addEventListener('load', () => {
+            // Get stress data from URL parameters or previous page
+            const urlParams = new URLSearchParams(window.location.search);
+            const stressLevel = parseFloat(urlParams.get('stress')) || 5.0;
+            const stressCategory = urlParams.get('category') || 'Medium';
+            const userMessage = urlParams.get('message') || '';
+            
+            initializeMotivationInterface(stressLevel, stressCategory, userMessage);
+        });
+    </script>
+</body>
+</html>  

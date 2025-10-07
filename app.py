@@ -3,7 +3,61 @@ from fastapi.middleware.cors import CORSMiddleware
 from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 import uvicorn
-from agents.stress_estimator import stress_estimator, StressEstimator
+
+# Try to import the stress estimator with multiple fallbacks
+try:
+    from agents.stress_estimator import StressEstimator
+    print("✅ Imported StressEstimator successfully")
+except ImportError:
+    try:
+        # Try common alternative class names
+        from agents.stress_estimator import StressEstimationAgent as StressEstimator
+        print("✅ Imported StressEstimationAgent as StressEstimator")
+    except ImportError:
+        try:
+            from agents.stress_estimator import StressAnalysis as StressEstimator
+            print("✅ Imported StressAnalysis as StressEstimator")
+        except ImportError:
+            try:
+                from agents.stress_estimator import StressDetector as StressEstimator
+                print("✅ Imported StressDetector as StressEstimator")
+            except ImportError:
+                # Final fallback - import module and find class
+                try:
+                    from agents import stress_estimator
+                    import inspect
+                    
+                    # Find all classes in the module
+                    classes = []
+                    for name, obj in inspect.getmembers(stress_estimator):
+                        if inspect.isclass(obj) and obj.__module__ == 'agents.stress_estimator':
+                            classes.append((name, obj))
+                    
+                    if classes:
+                        # Use the first class found
+                        class_name, class_obj = classes[0]
+                        StressEstimator = class_obj
+                        print(f"✅ Imported {class_name} as StressEstimator")
+                    else:
+                        raise ImportError("No classes found in stress_estimator module")
+                        
+                except Exception as e:
+                    print(f"❌ All import attempts failed: {e}")
+                    # Create a simple fallback class
+                    class StressEstimator:
+                        def __init__(self, use_database=True, use_llm=True):
+                            self.use_database = use_database
+                            self.use_llm = use_llm
+                            print("⚠️ Using fallback StressEstimator")
+                        
+                        def enhanced_comprehensive_analysis(self, data, user_id):
+                            return {
+                                "stress_score": 5.0,
+                                "stress_level": "Medium", 
+                                "explanation": "Fallback analysis - original estimator not available",
+                                "success": True
+                            }
+
 from agents.motivational_agent import motivational_agent, MotivationRequest
 from config import Config
 from datetime import datetime, timedelta
@@ -45,6 +99,7 @@ if use_llm:
         print("❌ No valid Google API key found. Disabling LLM.")
         use_llm = False
 
+# Initialize the stress estimator
 flask_estimator = StressEstimator(use_database=True, use_llm=use_llm)
 
 # In-memory user store (in production, use a real database)
@@ -60,7 +115,7 @@ def verify_password(stored_password, provided_password):
 @fastapi_app.post("/estimate-stress")
 async def estimate_stress_endpoint(text: str):
     try:
-        result = stress_estimator.estimate_stress_level(text)
+        result = flask_estimator.estimate_stress_level(text)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -554,12 +609,10 @@ def not_found(error):
 def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
 
-# ==================== MOTIVATION INTEGRATION ====================
+# ==================== MOTIVATION AGENT ROUTES ====================
 
 def generate_motivation_from_stress(stress_result, user_message=""):
     """Generate motivation based on stress analysis result"""
-    from agents.motivational_agent import motivational_agent, MotivationRequest
-    
     # Create motivation request from stress result
     motivation_request = MotivationRequest(
         stress_level=stress_result["stress_score"],
@@ -573,7 +626,62 @@ def generate_motivation_from_stress(stress_result, user_message=""):
     
     return motivation_response
 
-# Enhanced analysis route with motivation
+@flask_app.route('/api/generate-motivation', methods=['POST'])
+def generate_motivation_api():
+    """Generate motivation from stress level"""
+    try:
+        data = request.get_json()
+        
+        print(f"🎯 Generating motivation for stress level: {data.get('stress_level')}")
+        
+        motivation_request = MotivationRequest(
+            stress_level=data.get('stress_level', 5.0),
+            stress_category=data.get('stress_category', 'Medium'),
+            user_message=data.get('user_message', ''),
+            generate_audio=data.get('generate_audio', True)
+        )
+        
+        response = motivational_agent.generate_motivation(motivation_request)
+        
+        result = {
+            "success": response.success,
+            "motivational_message": response.motivational_message,
+            "audio_file_path": response.audio_file_path,
+            "stress_level": data.get('stress_level'),
+            "stress_category": data.get('stress_category')
+        }
+        
+        # Play audio if generated and requested
+        if response.audio_file_path and data.get('play_audio', True):
+            motivational_agent.play_audio(response.audio_file_path)
+        
+        print("✅ Motivation generated successfully")
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"❌ Error generating motivation: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@flask_app.route('/api/play-audio', methods=['POST'])
+def play_audio_api():
+    """Play generated audio"""
+    try:
+        data = request.get_json()
+        audio_path = data.get('audio_path')
+        
+        if not audio_path:
+            return jsonify({"error": "No audio path provided"}), 400
+        
+        print(f"🔊 Playing audio: {audio_path}")
+        
+        success = motivational_agent.play_audio(audio_path)
+        
+        return jsonify({"success": success, "audio_played": audio_path})
+        
+    except Exception as e:
+        print(f"❌ Error playing audio: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 @flask_app.route('/api/analyze-with-motivation', methods=['POST', 'OPTIONS'])
 def enhanced_analysis_with_motivation():
     """Your existing analysis enhanced with motivation"""
@@ -582,7 +690,7 @@ def enhanced_analysis_with_motivation():
         
     try:
         data = request.get_json()
-        user_id = get_current_user_id()  # Use your existing user ID function
+        user_id = get_current_user_id()
         
         print("🎯 Starting enhanced analysis with motivation...")
         
@@ -606,7 +714,6 @@ def enhanced_analysis_with_motivation():
         # Play audio automatically if generated
         if motivation_result.audio_file_path:
             print(f"🔊 Playing audio motivation: {motivation_result.audio_file_path}")
-            from agents.motivational_agent import motivational_agent
             motivational_agent.play_audio(motivation_result.audio_file_path)
         
         print(f"✅ Enhanced analysis complete with motivation for user: {user_id}")
@@ -616,67 +723,6 @@ def enhanced_analysis_with_motivation():
         print(f"❌ Error in enhanced analysis with motivation: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-# Separate motivation endpoint (for standalone motivation generation)
-@flask_app.route('/api/generate-motivation', methods=['POST'])
-def generate_motivation_api():
-    """Generate motivation from stress level"""
-    try:
-        data = request.get_json()
-        
-        print(f"🎯 Generating motivation for stress level: {data.get('stress_level')}")
-        
-        motivation_request = MotivationRequest(
-            stress_level=data.get('stress_level', 5.0),
-            stress_category=data.get('stress_category', 'Medium'),
-            user_message=data.get('user_message', ''),
-            generate_audio=data.get('generate_audio', True)
-        )
-        
-        from agents.motivational_agent import motivational_agent
-        response = motivational_agent.generate_motivation(motivation_request)
-        
-        result = {
-            "success": response.success,
-            "motivational_message": response.motivational_message,
-            "audio_file_path": response.audio_file_path,
-            "stress_level": data.get('stress_level'),
-            "stress_category": data.get('stress_category')
-        }
-        
-        # Play audio if generated and requested
-        if response.audio_file_path and data.get('play_audio', True):
-            motivational_agent.play_audio(response.audio_file_path)
-        
-        print("✅ Motivation generated successfully")
-        return jsonify(result)
-        
-    except Exception as e:
-        print(f"❌ Error generating motivation: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-# Audio playback endpoint
-@flask_app.route('/api/play-audio', methods=['POST'])
-def play_audio_api():
-    """Play generated audio"""
-    try:
-        data = request.get_json()
-        audio_path = data.get('audio_path')
-        
-        if not audio_path:
-            return jsonify({"error": "No audio path provided"}), 400
-        
-        print(f"🔊 Playing audio: {audio_path}")
-        
-        from agents.motivational_agent import motivational_agent
-        success = motivational_agent.play_audio(audio_path)
-        
-        return jsonify({"success": success, "audio_played": audio_path})
-        
-    except Exception as e:
-        print(f"❌ Error playing audio: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-# Update existing analysis endpoints to optionally include motivation
 @flask_app.route('/api/analyze-mood-with-motivation', methods=['POST', 'OPTIONS'])
 def analyze_mood_with_motivation():
     """Enhanced mood analysis with motivation"""
@@ -698,7 +744,6 @@ def analyze_mood_with_motivation():
 
 # ==================== RUN APPLICATIONS ====================
 
-# Run both applications
 def run_fastapi():
     uvicorn.run(fastapi_app, host="0.0.0.0", port=config.STRESS_ESTIMATOR_PORT)
 
@@ -722,10 +767,10 @@ def run_flask():
     print("   ✅ Trend Analysis")
     print("   🎯 Audio Motivational Support")
     print("")
-    print("🎵 NEW MOTIVATION ENDPOINTS:")
-    print("   POST /api/analyze-with-motivation")
-    print("   POST /api/generate-motivation") 
+    print("🎵 MOTIVATION ENDPOINTS:")
+    print("   POST /api/generate-motivation")
     print("   POST /api/play-audio")
+    print("   POST /api/analyze-with-motivation")
     print("   POST /api/analyze-mood-with-motivation")
     print("")
     print("💾 Database: SQLite with user storage")

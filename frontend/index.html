@@ -605,6 +605,79 @@
                     <button class="btn-secondary" onclick="resetAnalysis()">
                         🔄 Analyze Again
                     </button>
+                    
+                    <!-- ADD THIS NEW BUTTON -->
+                    <button class="btn-primary" onclick="showMotivationPage()" style="margin-top: 10px;">
+                        💫 Get Motivational Support
+                    </button>
+                </div>
+            </section>
+
+            <!-- Motivation Section -->
+            <section class="motivation-section" id="motivationSection" style="display: none;">
+                <div class="motivation-container">
+                    <div class="motivation-header">
+                        <div class="coach-avatar">💫</div>
+                        <h2>Your Personal Motivation Coach</h2>
+                        <div class="stress-badge">Stress Level: <span id="motivationStressLevel">0</span>/10</div>
+                    </div>
+
+                    <div class="motivation-content">
+                        <div class="message-container">
+                            <div class="typing-indicator" id="typingIndicator">
+                                Your coach is crafting a personalized message...
+                            </div>
+                            <div class="motivation-text" id="motivationText">
+                                <!-- Message will appear here -->
+                            </div>
+                        </div>
+
+                        <div class="audio-controls">
+                            <button class="play-button" id="playButton" onclick="toggleAudio()">
+                                <span>🔊</span>
+                                <span id="playText">Listen to Message</span>
+                            </button>
+                            <div class="audio-visualizer">
+                                <div class="audio-wave" id="audioWave"></div>
+                            </div>
+                        </div>
+
+                        <div class="actions-grid">
+                            <div class="action-card" onclick="startBreathingExercise()">
+                                <span class="action-icon">🌬️</span>
+                                <strong>Breathe</strong>
+                                <small>2-minute calm</small>
+                            </div>
+                            <div class="action-card" onclick="showAffirmations()">
+                                <span class="action-icon">💝</span>
+                                <strong>Affirmations</strong>
+                                <small>Positive boost</small>
+                            </div>
+                            <div class="action-card" onclick="saveMotivation()">
+                                <span class="action-icon">💾</span>
+                                <strong>Save</strong>
+                                <small>Keep this message</small>
+                            </div>
+                            <div class="action-card" onclick="goBackToResults()">
+                                <span class="action-icon">📊</span>
+                                <strong>Back to Results</strong>
+                                <small>View analysis</small>
+                            </div>
+                        </div>
+
+                        <div class="breathing-exercise" id="breathingExercise" style="display: none;">
+                            <h3>🌬️ Breathing Exercise</h3>
+                            <p>Follow the circle - Breathe in as it expands, out as it contracts</p>
+                            <div class="breathing-circle">Breathe</div>
+                            <button class="btn-primary" onclick="stopBreathingExercise()">I feel calmer</button>
+                        </div>
+
+                        <div class="next-steps">
+                            <button class="btn-primary" onclick="generateNewMotivation()">
+                                🔄 Get New Motivation
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </section>
         </div>
