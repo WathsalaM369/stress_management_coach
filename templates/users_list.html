@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-info text-white">
+        <h4 class="mb-0">👥 Registered Users</h4>
+    </div>
+    <div class="card-body">
+        {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+        
+        {% if users %}
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>Preferences</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user.id }}</td>
+                        <td><strong>{{ user.username }}</strong></td>
+                        <td>
+                            <small>
+                                Likes: {{ user.preferences.likes|join(', ') }}<br>
+                                Default Time: {{ user.preferences.default_available_minutes }}min
+                            </small>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('recommend') }}?username={{ user.username }}" 
+                               class="btn btn-sm btn-success">Get Recommendations</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-warning">No users found in the database.</div>
+        {% endif %}
+        
+        <div class="mt-3">
+            <a href="{{ url_for('onboard') }}" class="btn btn-primary">Add New User</a>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Home</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

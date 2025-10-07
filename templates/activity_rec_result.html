@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-info text-white">
+        <h4 class="mb-0">🎯 Your Personalized Recommendations</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-primary">
+            <h5>User: <strong>{{ username }}</strong></h5>
+            {% if user %}
+            <small>
+                Preferred activities: {{ user.preferences.likes|join(', ') }}<br>
+                Default time: {{ user.preferences.default_available_minutes }} minutes
+            </small>
+            {% endif %}
+        </div>
+        
+        {% if stress_result %}
+        <div class="alert alert-warning mb-4">
+            <h5>Stress Analysis:</h5>
+            <p class="mb-0">{{ stress_result.message }}</p>
+            <small>Stress Level: {{ stress_result.stress_level }} | Score: {{ stress_result.score }}</small>
+        </div>
+        {% endif %}
+        
+        <h5>Recommended Activities:</h5>
+        {% if recommendations %}
+            <div class="row">
+                {% for activity in recommendations %}
+                <div class="col-md-6 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="card-title">{{ activity.name }}</h6>
+                            <p class="card-text small">{{ activity.description }}</p>
+                            <span class="badge bg-primary">{{ activity.duration_minutes }} minutes</span>
+                            <span class="badge bg-secondary">{{ activity.category }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-warning">No recommendations found for your criteria. Try adjusting time or stress level.</div>
+        {% endif %}
+        
+        <div class="mt-4">
+            <a href="{{ url_for('recommend') }}?username={{ username }}" class="btn btn-primary">Get New Recommendations</a>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Home</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

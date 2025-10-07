@@ -1,11 +1,13 @@
-from flask import Flask, request, jsonify, send_from_directory, session
+from flask import Flask, request, jsonify, render_template, redirect, url_for, send_from_directory, session
 from flask_cors import CORS
+from agents.activity_recommender_flask import activity_bp
 from agents.stress_estimator import StressEstimator
 from datetime import datetime, timedelta
+import requests
+import json
 import os
 import secrets
 import hashlib
-import json
 
 app = Flask(__name__)
 app.secret_key = 'mindsoothe-secret-key-2024'
@@ -13,7 +15,34 @@ app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 
 # Enhanced CORS with Gemini support
-CORS(app, supports_credentials=True, origins=['http://localhost:3000', 'http://localhost:5001'])
+CORS(app, supports_credentials=True, origins=['http://localhost:3000', 'http://localhost:5000', 'http://localhost:5001'])
+
+# =============================================================================
+# SENUTHI'S ACTIVITY RECOMMENDER SETUP
+# =============================================================================
+
+# Simple mock for stress estimation (used by activity recommender)
+class MockStressEstimator:
+    def estimate_stress_level(self, text):
+        if not text:
+            return {"stress_level": "Medium", "score": 0.5, "message": "No text provided"}
+        
+        text_lower = text.lower()
+        if any(word in text_lower for word in ['stress', 'anxious', 'overwhelm', 'pressure', 'worry']):
+            return {"stress_level": "High", "score": 0.8, "message": "You seem to be experiencing high stress levels"}
+        elif any(word in text_lower for word in ['tired', 'busy', 'hectic', 'lot to do']):
+            return {"stress_level": "Medium", "score": 0.6, "message": "You appear to have moderate stress"}
+        else:
+            return {"stress_level": "Low", "score": 0.3, "message": "You seem to be doing well"}
+
+agent = MockStressEstimator()
+
+# Register activity recommender blueprint
+app.register_blueprint(activity_bp, url_prefix='/api/activity_recommender')
+
+# =============================================================================
+# WATHSALA'S STRESS ESTIMATOR SETUP
+# =============================================================================
 
 # Initialize stress estimator with Gemini
 use_llm = os.getenv('USE_LLM', 'true').lower() == 'true'
@@ -35,6 +64,191 @@ def hash_password(password):
 
 def verify_password(stored_password, provided_password):
     return stored_password == hash_password(provided_password)
+
+def get_current_user_id():
+    """Get current user ID or create temporary one"""
+    user_id = session.get('user_id')
+    if not user_id:
+        user_id = f"temp_{secrets.token_hex(8)}"
+        session['user_id'] = user_id
+        session['username'] = 'Guest'
+        print(f"🆕 Created temporary user: {user_id}")
+    return user_id
+
+# =============================================================================
+# SENUTHI'S ACTIVITY RECOMMENDER WEB ROUTES
+# =============================================================================
+
+@app.route('/')
+def index():
+    return render_template('activity_rec_index.html')
+
+@app.route('/onboard', methods=['GET', 'POST'])
+def onboard():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        likes = request.form.getlist('likes')
+        default_time = int(request.form.get('default_time', 10))
+        
+        print(f"DEBUG: Creating user '{username}' with likes: {likes}")
+        
+        try:
+            # Create user via API
+            response = requests.post(
+                'http://localhost:5000/api/activity_recommender/users',
+                json={'username': username},
+                timeout=5
+            )
+            
+            print(f"DEBUG: Response status: {response.status_code}")
+            print(f"DEBUG: Response content: {response.text}")
+            
+            if response.status_code == 201:
+                user_data = response.json()
+                user_id = user_data['id']
+                
+                # Set preferences
+                pref_response = requests.put(
+                    f'http://localhost:5000/api/activity_recommender/users/{user_id}/preferences',
+                    json={
+                        'likes': likes, 
+                        'default_available_minutes': default_time
+                    },
+                    timeout=5
+                )
+                
+                print(f"DEBUG: Preferences response: {pref_response.status_code}")
+                
+                if pref_response.status_code == 200:
+                    return redirect(url_for('recommend_success', user_id=user_id))
+                else:
+                    return render_template('user_onboard.html', error="Error setting preferences")
+            else:
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('error', 'Unknown error')
+                except:
+                    error_msg = f"Server returned status {response.status_code}"
+                
+                return render_template('user_onboard.html', error=error_msg)
+                
+        except requests.exceptions.RequestException as e:
+            return render_template('user_onboard.html', error=f"Connection error: {str(e)}")
+        except Exception as e:
+            return render_template('user_onboard.html', error=f"Unexpected error: {str(e)}")
+    
+    return render_template('user_onboard.html')
+
+@app.route('/recommend-success/<int:user_id>')
+def recommend_success(user_id):
+    return render_template('activity_rec_result.html', user_id=user_id, message="Account created successfully!")
+
+@app.route('/recommend', methods=['GET', 'POST'])
+def recommend():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        stress_level = request.form.get('stress_level')
+        available_minutes = int(request.form.get('available_minutes', 10))
+        user_text = request.form.get('user_text', '')
+        
+        if not username:
+            return render_template('activity_rec_form.html', error="Username is required")
+        
+        # Get stress level from text if provided
+        stress_result = None
+        if user_text:
+            stress_result = agent.estimate_stress_level(user_text)
+            stress_level = stress_result['stress_level']
+        
+        try:
+            # Get all users
+            response = requests.get('http://localhost:5000/api/activity_recommender/users')
+            
+            if response.status_code == 200:
+                users = response.json()
+                user_id = None
+                user_found = None
+                
+                # Find user by username (case-insensitive)
+                for user in users:
+                    if user['username'].lower() == username.lower():
+                        user_id = user['id']
+                        user_found = user
+                        break
+                
+                if not user_id:
+                    return render_template('activity_rec_form.html', 
+                                         error=f"User '{username}' not found. Please check the username or create a new account.")
+                
+                # Get recommendations
+                rec_response = requests.post(
+                    'http://localhost:5000/api/activity_recommender/recommend',
+                    json={
+                        'stress_level': stress_level,
+                        'user_id': user_id,
+                        'context': {'available_minutes': available_minutes}
+                    }
+                )
+                
+                if rec_response.status_code == 200:
+                    result = rec_response.json()
+                    recommendations = result.get('recommendations', [])
+                    
+                    return render_template('activity_rec_result.html',
+                                         recommendations=recommendations,
+                                         stress_result=stress_result,
+                                         username=username,
+                                         user=user_found)
+                else:
+                    error_msg = rec_response.json().get('error', 'Unknown error')
+                    return render_template('activity_rec_form.html', 
+                                         error=f"Error getting recommendations: {error_msg}")
+            else:
+                return render_template('activity_rec_form.html', 
+                                     error="Cannot access user database. Please try again.")
+                
+        except requests.exceptions.RequestException as e:
+            return render_template('activity_rec_form.html', 
+                                 error=f"Connection error: {str(e)}")
+    
+    # For GET requests, check if username is provided in URL parameters
+    username = request.args.get('username', '')
+    return render_template('activity_rec_form.html', username=username)
+
+@app.route('/users')
+def users_list():
+    """Display all registered users"""
+    try:
+        response = requests.get('http://localhost:5000/api/activity_recommender/users')
+        if response.status_code == 200:
+            users = response.json()
+            return render_template('users_list.html', users=users)
+        else:
+            return render_template('users_list.html', users=[], error="Cannot fetch users")
+    except requests.exceptions.RequestException as e:
+        return render_template('users_list.html', users=[], error=f"Connection error: {str(e)}")
+
+@app.route('/api/users', methods=['GET'])
+def get_all_users():
+    try:
+        response = requests.get('http://localhost:5000/api/activity_recommender/users')
+        if response.status_code == 200:
+            return jsonify(response.json())
+        else:
+            return jsonify([])
+    except:
+        return jsonify([])
+
+@app.route('/api/estimate_stress', methods=['POST'])
+def estimate_stress():
+    data = request.get_json()
+    text = data.get('text', '')
+    result = agent.estimate_stress_level(text)
+    return jsonify(result)
+
+# =============================================================================
+# WATHSALA'S STRESS ESTIMATOR API ROUTES
+# =============================================================================
 
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -129,16 +343,6 @@ def get_current_user():
         })
     else:
         return jsonify({"logged_in": False})
-
-def get_current_user_id():
-    """Get current user ID or create temporary one"""
-    user_id = session.get('user_id')
-    if not user_id:
-        user_id = f"temp_{secrets.token_hex(8)}"
-        session['user_id'] = user_id
-        session['username'] = 'Guest'
-        print(f"🆕 Created temporary user: {user_id}")
-    return user_id
 
 @app.route('/api/analyze-mood', methods=['POST', 'OPTIONS'])
 def analyze_mood():
@@ -277,14 +481,13 @@ def get_user_trend_fixed(user_id):
     except Exception as e:
         print(f"❌ Error in trend calculation: {e}")
         return "unknown"
-    
+
 @app.route('/api/history/<user_id>', methods=['GET'])
 def get_user_history(user_id):
     try:
         print(f"📊 Getting history for user: {user_id}")
         history = estimator.db_manager.get_user_history(user_id)
         
-        # Debug: Print what we're getting from database
         print(f"📋 History records found: {len(history)}")
         for i, record in enumerate(history[:3]):
             print(f"  Record {i}: {record.get('stress_score', 'N/A')} - {record.get('timestamp', 'N/A')}")
@@ -419,28 +622,15 @@ def get_user_stats(user_id):
         print(f"❌ Error getting stats: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/debug/users', methods=['GET'])
-def debug_users():
-    """Debug endpoint to see all registered users"""
-    return jsonify({
-        "total_users": len(users_db),
-        "users": users_db
-    })
-
-@app.route('/api/debug/session', methods=['GET'])
-def debug_session():
-    """Debug endpoint to check session"""
-    return jsonify({
-        "session_data": dict(session),
-        "user_id": session.get('user_id'),
-        "username": session.get('username')
-    })
+# =============================================================================
+# SHARED/COMMON ROUTES
+# =============================================================================
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({
         "status": "healthy",
-        "service": "AI Stress Estimator",
+        "service": "Combined: Activity Recommender + Stress Estimator",
         "version": "3.0.0",
         "llm_enabled": estimator.use_llm,
         "llm_provider": "Gemini 1.5 Flash" if estimator.use_llm else "None",
@@ -478,12 +668,22 @@ def test_endpoint():
         "status": "success"
     })
 
-@app.route('/')
-def serve_frontend():
-    try:
-        return send_from_directory('frontend', 'index.html')
-    except Exception as e:
-        return jsonify({"error": "Frontend not found"}), 404
+@app.route('/api/debug/users', methods=['GET'])
+def debug_users():
+    """Debug endpoint to see all registered users"""
+    return jsonify({
+        "total_users": len(users_db),
+        "users": users_db
+    })
+
+@app.route('/api/debug/session', methods=['GET'])
+def debug_session():
+    """Debug endpoint to check session"""
+    return jsonify({
+        "session_data": dict(session),
+        "user_id": session.get('user_id'),
+        "username": session.get('username')
+    })
 
 @app.route('/<path:path>')
 def serve_static_files(path):
@@ -508,24 +708,28 @@ def not_found(error):
 def internal_error(error):
     return jsonify({"error": "Internal server error"}), 500
 
+# =============================================================================
+# START THE SERVER
+# =============================================================================
+
 if __name__ == '__main__':
-    print("🧠 MindSoothe Stress Detection System Starting...")
+    print("🚀 Starting Combined System...")
     print("=" * 60)
-    print("📍 Backend API: http://localhost:5001")
-    print("🎨 Frontend: http://localhost:5001")
+    print("📍 SENUTHI: Activity Recommender System")
+    print("   - Web Routes: /onboard, /recommend, /users")
+    print("   - API: /api/activity_recommender/*")
+    print("")
+    print("📍 WATHSALA: Stress Detection System")
+    print("   - API: /api/analyze-mood, /api/register, /api/login")
+    print("   - Features: Gemini AI Analysis, Charts, Statistics")
+    print("")
+    print("🌐 Running on: http://localhost:5000")
+    print("=" * 60)
     print("")
     print("🤖 AI CAPABILITIES:")
     print(f"   ✅ Gemini Analysis: {estimator.use_llm}")
     print("")
-    print("🔐 AUTHENTICATION:")
-    print("   ✅ User Registration & Login") 
-    print("")
-    print("📊 FEATURES:")
-    print("   ✅ Comprehensive Stress Assessment")
-    print("   ✅ Real-time Charts & Statistics")
-    print("   ✅ Trend Analysis")
-    print("")
     print("💾 Database: SQLite with user storage")
     print("=" * 60)
     
-    app.run(port=5001, debug=True, host='0.0.0.0')
+    app.run(debug=True, host='0.0.0.0', port=5000)
