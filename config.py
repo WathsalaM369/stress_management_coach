@@ -1,38 +1,34 @@
 import os
 from dotenv import load_dotenv
 
+# Load environment variables
 load_dotenv()
 
 class Config:
-    # Model settings
-    MODEL_NAME = "j-hartmann/emotion-english-distilroberta-base"
-    MAX_LENGTH = 512
+    """Wathsala's stress estimator configuration"""
+    # Database
+    DATABASE_PATH = 'stress_data.db'
     
-    # Stress mapping
-    STRESS_MAPPING = {
-        'anger': 8,
-        'disgust': 7,
-        'fear': 9,
-        'joy': 2,
-        'neutral': 4,
-        'sadness': 9,
-        'surprise': 5
-    }
+    # Server
+    PORT = 5001
+    DEBUG = True
+    
+    # AI Model Paths (for future enhancements)
+    SENTIMENT_MODEL_PATH = 'models/sentiment_model'
     
     # Thresholds
     HIGH_STRESS_THRESHOLD = 7
     MEDIUM_STRESS_THRESHOLD = 4
-
-# config.py (Updated for Flask)
-import os
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
+    
+    # Security
+    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 class Settings:
+    """Senuthi's activity recommender configuration"""
     def __init__(self):
         self.database_url = os.getenv("DATABASE_URL", "sqlite:///./stress_app.db")
         self.agent_port = int(os.getenv("AGENT_PORT", 5000))
 
+# Create instances for easy access
+config = Config()
 settings = Settings()
