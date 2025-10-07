@@ -1,3 +1,4 @@
+# vinushas
 import logging
 from transformers import pipeline
 from config import Config
