@@ -3,481 +3,617 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stress Level Dashboard</title>
+    <title>Stress Management Coach - Stress-Free Mood Tracker</title>
+    <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            overflow: hidden;
-        }
-        
-        header {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-        
-        h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-        
-        .subtitle {
-            font-size: 1.2em;
-            opacity: 0.9;
-        }
-        
-        .main-content {
-            padding: 30px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-        }
-        
-        .input-section {
-            grid-column: 1 / -1;
-        }
-        
-        .input-container {
-            background: #f8f9fa;
-            padding: 25px;
-            border-radius: 10px;
-            border: 2px solid #e9ecef;
-        }
-        
-        textarea {
-            width: 100%;
-            height: 120px;
-            padding: 15px;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
-            font-size: 16px;
-            resize: vertical;
-            margin-bottom: 15px;
-            font-family: inherit;
-        }
-        
-        textarea:focus {
-            outline: none;
-            border-color: #4facfe;
-            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
-        }
-        
-        button {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.3);
-        }
-        
-        button:active {
-            transform: translateY(0);
-        }
-        
-        .results-section {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            border: 2px solid #e9ecef;
-        }
-        
-        .stress-level {
-            text-align: center;
-            margin-bottom: 25px;
-        }
-        
-        .level-badge {
-            font-size: 2em;
-            font-weight: bold;
-            padding: 15px 30px;
-            border-radius: 25px;
-            display: inline-block;
-        }
-        
-        .level-low {
-            background: linear-gradient(135deg, #4cd964 0%, #5ac8fa 100%);
-            color: white;
-        }
-        
-        .level-medium {
-            background: linear-gradient(135deg, #ffcc00 0%, #ff9500 100%);
-            color: white;
-        }
-        
-        .level-high {
-            background: linear-gradient(135deg, #ff3b30 0%, #ff9500 100%);
-            color: white;
-        }
-        
-        .score-display {
-            font-size: 3em;
-            font-weight: bold;
-            text-align: center;
-            margin: 20px 0;
-            color: #495057;
-        }
-        
-        .explanation {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 10px;
-            border-left: 4px solid #4facfe;
-            margin: 20px 0;
-        }
-        
-        .keywords {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin: 15px 0;
-        }
-        
-        .keyword {
-            background: #e9ecef;
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            color: #495057;
-        }
-        
-        .chart-container {
-            height: 300px;
-            margin-top: 20px;
-        }
-        
-        .history-section {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            border: 2px solid #e9ecef;
-        }
-        
-        .history-list {
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        
-        .history-item {
-            padding: 15px;
-            border-bottom: 1px solid #e9ecef;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .history-item:last-child {
-            border-bottom: none;
-        }
-        
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #6c757d;
-        }
-        
-        .error {
-            background: #fff5f5;
-            color: #e53e3e;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #fed7d7;
-            margin: 15px 0;
-        }
-        
-        @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
-            
-            header {
-                padding: 20px;
-            }
-            
-            h1 {
-                font-size: 2em;
-            }
-        }
-    </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🧠 Stress Level Analyzer</h1>
-            <p class="subtitle">AI-powered stress detection and monitoring</p>
+            <h1>🧠 Stress Management Coach</h1>
+            <p class="subtitle">Express your feelings without words</p>
+            <div class="user-info" id="userInfo" style="display: none;">
+                <span id="usernameDisplay"></span>
+                <button onclick="logout()" class="btn-logout">Logout</button>
+            </div>
         </header>
+
+        <!-- Login/Register Section -->
+        <section class="auth-section" id="authSection">
+            <div class="auth-container">
+                <div class="auth-tabs">
+                    <button class="auth-tab active" onclick="showAuthTab('login')">Login</button>
+                    <button class="auth-tab" onclick="showAuthTab('register')">Register</button>
+                </div>
+
+                <!-- Login Form -->
+                <div class="auth-form" id="loginForm">
+                    <h2>Welcome Back</h2>
+                    <form onsubmit="login(event)">
+                        <div class="form-group">
+                            <label for="loginUsername">Username:</label>
+                            <input type="text" id="loginUsername" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword">Password:</label>
+                            <input type="password" id="loginPassword" required>
+                        </div>
+                        <button type="submit" class="btn-primary">Login</button>
+                    </form>
+                    <p class="auth-switch">
+                        Don't have an account? 
+                        <a href="#" onclick="showAuthTab('register')">Register here</a>
+                    </p>
+                </div>
+
+                <!-- Register Form -->
+                <div class="auth-form" id="registerForm" style="display: none;">
+                    <h2>Create Account</h2>
+                    <form onsubmit="register(event)">
+                        <div class="form-group">
+                            <label for="registerUsername">Username:</label>
+                            <input type="text" id="registerUsername" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerEmail">Email (optional):</label>
+                            <input type="email" id="registerEmail">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPassword">Password:</label>
+                            <input type="password" id="registerPassword" required>
+                        </div>
+                        <button type="submit" class="btn-primary">Register</button>
+                    </form>
+                    <p class="auth-switch">
+                        Already have an account? 
+                        <a href="#" onclick="showAuthTab('login')">Login here</a>
+                    </p>
+                </div>
+
+                <!-- Quick Start (Anonymous) -->
+                <div class="anonymous-option">
+                    <hr>
+                    <p>Or continue without account:</p>
+                    <button onclick="continueAsGuest()" class="btn-secondary">
+                        🚀 Continue as Guest
+                    </button>
+                    <small>Your data will be saved temporarily</small>
+                </div>
+            </div>
+        </section>
+
+        <div class="main-content" id="mainContent" style="display: none;">
+            <!-- Game Section -->
+            <section class="game-section" id="gameSection">
+                <h2>🎮 Pop Your Mood Bubble</h2>
+                <p>Click the bubble that matches how you feel</p>
+                
+                <div class="bubble-container" id="bubbleGame">
+                    <!-- Bubbles will be generated here -->
+                </div>
+                
+                <div class="game-instructions">
+                    <p>💡 <strong>No typing needed!</strong> Just pop the bubble that feels right</p>
+                </div>
+            </section>
+
+            <!-- Quick Selection Section -->
+            <section class="quick-selection" id="quickSelection">
+                <h2>🚀 Or choose quickly:</h2>
+                
+                <!-- Emoji Selector -->
+                <div class="selector-group">
+                    <h3>How are you feeling?</h3>
+                    <div class="emoji-selector">
+                        <div class="emoji-option" data-emoji="😊" data-stress="1.5">
+                            <span>😊</span>
+                            
+                        </div>
+                        <div class="emoji-option" data-emoji="🙂" data-stress="2.5">
+                            <span>🙂</span>
+                            
+                        </div>
+                        <div class="emoji-option" data-emoji="😐" data-stress="4.0">
+                            <span>😐</span>
+                            
+                        </div>
+                        <div class="emoji-option" data-emoji="😕" data-stress="5.5">
+                            <span>😕</span>
+                            
+                        </div>
+                        <div class="emoji-option" data-emoji="😓" data-stress="7.0">
+                            <span>😓</span>
+                            
+                        </div>
+                        <div class="emoji-option" data-emoji="😢" data-stress="8.5">
+                            <span>😢</span>
+                            
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scene Selector -->
+                <div class="selector-group">
+                    <h3>Where does this fit your mood?</h3>
+                    <div class="scene-selector">
+                        <div class="scene-option" data-scene="beach" data-stress="1.5">
+                            <div class="scene-visual beach"></div>
+                            <span>Beach</span>
+                            <small>Relaxed</small>
+                        </div>
+                        <div class="scene-option" data-scene="nature" data-stress="2.0">
+                            <div class="scene-visual nature"></div>
+                            <span>Nature</span>
+                            <small>Calm</small>
+                        </div>
+                        <div class="scene-option" data-scene="office" data-stress="6.0">
+                            <div class="scene-visual office"></div>
+                            <span>Office</span>
+                            <small>Busy</small>
+                        </div>
+                        <div class="scene-option" data-scene="traffic" data-stress="7.5">
+                            <div class="scene-visual traffic"></div>
+                            <span>Traffic</span>
+                            <small>Frustrated</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Color Wheel -->
+                <div class="selector-group">
+                    <h3>Pick your mood color</h3>
+                    <div class="color-wheel">
+                        <div class="color-option" data-color="#87CEEB" data-stress="2.0" style="background: #87CEEB">
+                            <span>Calm</span>
+                        </div>
+                        <div class="color-option" data-color="#98FB98" data-stress="3.0" style="background: #98FB98">
+                            <span>Balanced</span>
+                        </div>
+                        <div class="color-option" data-color="#FFD700" data-stress="6.0" style="background: #FFD700">
+                            <span>Uneasy</span>
+                        </div>
+                        <div class="color-option" data-color="#FFA500" data-stress="7.5" style="background: #FFA500">
+                            <span>Stressed</span>
+                        </div>
+                        <div class="color-option" data-color="#FF4500" data-stress="9.0" style="background: #FF4500">
+                            <span>Overwhelmed</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- Add this after the quick selection section and before results section -->
+<!-- Enhanced Comprehensive Assessment Section -->
+<section class="comprehensive-assessment" id="comprehensiveAssessment" style="display: none;">
+    <h2>🎯 Let's Understand Your Stress Better</h2>
+    <p>Complete this quick colorful assessment for a more accurate analysis</p>
+    
+    <div class="assessment-progress">
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <span id="progressText">1/5</span>
+    </div>
+
+    <!-- Section 1: Physical Symptoms -->
+    <div class="assessment-section active" id="sectionPhysical">
+        <h3>🔍 How is your body feeling?</h3>
+        <p>Select any physical sensations you're experiencing</p>
         
-        <div class="main-content">
-            <div class="input-section">
-                <div class="input-container">
-                    <h2>How are you feeling today?</h2>
-                    <textarea 
-                        id="userInput" 
-                        placeholder="Describe your feelings, thoughts, or what's on your mind... 
-Example: 'I'm feeling overwhelmed with work deadlines and having trouble sleeping'"
-                    ></textarea>
-                    <button onclick="analyzeStress()">Analyze Stress Level</button>
+        <div class="symptom-grid">
+            <div class="symptom-option" data-symptom="headache" data-weight="2">
+                <div class="symptom-icon">😫</div>
+                <span>Headache</span>
+            </div>
+            <div class="symptom-option" data-symptom="tension" data-weight="2">
+                <div class="symptom-icon">💪</div>
+                <span>Muscle Tension</span>
+            </div>
+            <div class="symptom-option" data-symptom="heart" data-weight="3">
+                <div class="symptom-icon">💓</div>
+                <span>Racing Heart</span>
+            </div>
+            <div class="symptom-option" data-symptom="stomach" data-weight="2">
+                <div class="symptom-icon">🍽️</div>
+                <span>Upset Stomach</span>
+            </div>
+            <div class="symptom-option" data-symptom="fatigue" data-weight="1">
+                <div class="symptom-icon">😴</div>
+                <span>Fatigue</span>
+            </div>
+            <div class="symptom-option" data-symptom="breathing" data-weight="3">
+                <div class="symptom-icon">🌬️</div>
+                <span>Fast Breathing</span>
+            </div>
+            <!-- NEW: Additional Physical Symptoms -->
+            <div class="symptom-option" data-symptom="sleep_issues" data-weight="3">
+                <div class="symptom-icon">💤</div>
+                <span>Sleep Problems</span>
+            </div>
+            <div class="symptom-option" data-symptom="appetite_changes" data-weight="2">
+                <div class="symptom-icon">🍎</div>
+                <span>Appetite Changes</span>
+            </div>
+            <div class="symptom-option" data-symptom="chest_tightness" data-weight="3">
+                <div class="symptom-icon">💔</div>
+                <span>Chest Tightness</span>
+            </div>
+            <div class="symptom-option" data-symptom="dizziness" data-weight="2">
+                <div class="symptom-icon">🌀</div>
+                <span>Dizziness</span>
+            </div>
+        </div>
+        
+        <button class="btn-next" onclick="nextSection('sectionPhysical', 'sectionEmotional')">Next →</button>
+    </div>
+
+    <!-- Section 2: Emotional State -->
+    <div class="assessment-section" id="sectionEmotional">
+        <h3>💖 What emotions are present?</h3>
+        <p>Choose emotions you're feeling right now</p>
+        
+        <div class="emotion-grid">
+            <div class="emotion-option" data-emotion="anxious" data-weight="3">
+                <div class="emotion-color anxious"></div>
+                <span>Anxious</span>
+            </div>
+            <div class="emotion-option" data-emotion="overwhelmed" data-weight="4">
+                <div class="emotion-color overwhelmed"></div>
+                <span>Overwhelmed</span>
+            </div>
+            <div class="emotion-option" data-emotion="irritable" data-weight="2">
+                <div class="emotion-color irritable"></div>
+                <span>Irritable</span>
+            </div>
+            <div class="emotion-option" data-emotion="sad" data-weight="2">
+                <div class="emotion-color sad"></div>
+                <span>Sad</span>
+            </div>
+            <div class="emotion-option" data-emotion="angry" data-weight="3">
+                <div class="emotion-color angry"></div>
+                <span>Angry</span>
+            </div>
+            <div class="emotion-option" data-emotion="numb" data-weight="2">
+                <div class="emotion-color numb"></div>
+                <span>Numb</span>
+            </div>
+            <!-- NEW: Additional Emotional States -->
+            <div class="emotion-option" data-emotion="hopeless" data-weight="4">
+                <div class="emotion-color hopeless"></div>
+                <span>Hopeless</span>
+            </div>
+            <div class="emotion-option" data-emotion="guilty" data-weight="2">
+                <div class="emotion-color guilty"></div>
+                <span>Guilty</span>
+            </div>
+            <div class="emotion-option" data-emotion="empty" data-weight="3">
+                <div class="emotion-color empty"></div>
+                <span>Empty</span>
+            </div>
+            <div class="emotion-option" data-emotion="panic" data-weight="4">
+                <div class="emotion-color panic"></div>
+                <span>Panic</span>
+            </div>
+        </div>
+        
+        <div class="section-nav">
+            <button class="btn-prev" onclick="prevSection('sectionEmotional', 'sectionPhysical')">← Back</button>
+            <button class="btn-next" onclick="nextSection('sectionEmotional', 'sectionCognitive')">Next →</button>
+        </div>
+    </div>
+
+    <!-- Section 3: Cognitive Symptoms -->
+    <div class="assessment-section" id="sectionCognitive">
+        <h3>🧠 How's your thinking?</h3>
+        <p>Select any thinking patterns you're noticing</p>
+        
+        <div class="cognitive-grid">
+            <div class="cognitive-option" data-cognitive="racing" data-weight="3">
+                <div class="cognitive-icon">🌀</div>
+                <span>Racing Thoughts</span>
+            </div>
+            <div class="cognitive-option" data-cognitive="worry" data-weight="3">
+                <div class="cognitive-icon">😟</div>
+                <span>Constant Worry</span>
+            </div>
+            <div class="cognitive-option" data-cognitive="focus" data-weight="2">
+                <div class="cognitive-icon">🎯</div>
+                <span>Poor Focus</span>
+            </div>
+            <div class="cognitive-option" data-cognitive="forgetful" data-weight="2">
+                <div class="cognitive-icon">🤔</div>
+                <span>Forgetfulness</span>
+            </div>
+            <div class="cognitive-option" data-cognitive="indecisive" data-weight="2">
+                <div class="cognitive-icon">⚖️</div>
+                <span>Indecisive</span>
+            </div>
+            <div class="cognitive-option" data-cognitive="negative" data-weight="3">
+                <div class="cognitive-icon">☁️</div>
+                <span>Negative Thoughts</span>
+            </div>
+            <!-- NEW: Additional Cognitive Patterns -->
+            <div class="cognitive-option" data-cognitive="catastrophizing" data-weight="3">
+                <div class="cognitive-icon">🌪️</div>
+                <span>Worst-Case Thinking</span>
+            </div>
+            <div class="cognitive-option" data-cognitive="self_critical" data-weight="2">
+                <div class="cognitive-icon">👤</div>
+                <span>Self-Critical</span>
+            </div>
+            <div class="cognitive-option" data-cognitive="memory_issues" data-weight="2">
+                <div class="cognitive-icon">📝</div>
+                <span>Memory Problems</span>
+            </div>
+            <div class="cognitive-option" data-cognitive="confusion" data-weight="2">
+                <div class="cognitive-icon">❓</div>
+                <span>Mental Confusion</span>
+            </div>
+        </div>
+        
+        <div class="section-nav">
+            <button class="btn-prev" onclick="prevSection('sectionCognitive', 'sectionEmotional')">← Back</button>
+            <button class="btn-next" onclick="nextSection('sectionCognitive', 'sectionLifestyle')">Next →</button>
+        </div>
+    </div>
+
+    <!-- NEW Section 4: Lifestyle Impact -->
+    <div class="assessment-section" id="sectionLifestyle">
+        <h3>🌟 Daily Life Impact</h3>
+        <p>How is stress affecting your daily life?</p>
+        
+        <div class="lifestyle-grid">
+            <!-- Sleep Patterns -->
+            <div class="lifestyle-group">
+                <h4>💤 How has your sleep been?</h4>
+                <div class="lifestyle-options">
+                    <div class="lifestyle-option" data-category="sleep" data-value="trouble_sleeping" data-weight="3">
+                        <div class="lifestyle-icon">😴</div>
+                        <span>Trouble falling asleep</span>
+                    </div>
+                    <div class="lifestyle-option" data-category="sleep" data-value="waking_night" data-weight="2">
+                        <div class="lifestyle-icon">⏰</div>
+                        <span>Waking up at night</span>
+                    </div>
+                    <div class="lifestyle-option" data-category="sleep" data-value="early_waking" data-weight="2">
+                        <div class="lifestyle-icon">🌅</div>
+                        <span>Waking up too early</span>
+                    </div>
+                    <div class="lifestyle-option" data-category="sleep" data-value="oversleeping" data-weight="1">
+                        <div class="lifestyle-icon">🛌</div>
+                        <span>Sleeping too much</span>
+                    </div>
+                    <div class="lifestyle-option" data-category="sleep" data-value="normal_sleep" data-weight="0">
+                        <div class="lifestyle-icon">✅</div>
+                        <span>Sleeping normally</span>
+                    </div>
                 </div>
             </div>
             
-            <div class="results-section">
-                <h2>Analysis Results</h2>
-                <div id="results">
-                    <div class="loading" id="loading">
-                        <p>Enter your thoughts above to see your stress analysis</p>
+            <!-- Appetite Changes -->
+            <div class="lifestyle-group">
+                <h4>🍎 Any appetite changes?</h4>
+                <div class="lifestyle-options">
+                    <div class="lifestyle-option" data-category="appetite" data-value="eating_less" data-weight="2">
+                        <div class="lifestyle-icon">🍽️</div>
+                        <span>Eating less</span>
                     </div>
-                    <div id="resultsContent" style="display: none;">
-                        <div class="stress-level">
-                            <span id="levelBadge" class="level-badge">Low</span>
-                        </div>
-                        
-                        <div class="score-display">
-                            <span id="stressScore">0.0</span>/10
-                        </div>
-                        
-                        <div class="explanation">
-                            <p id="explanationText">Your analysis will appear here...</p>
-                        </div>
-                        
-                        <div>
-                            <h3>Detected Keywords:</h3>
-                            <div id="keywordsContainer" class="keywords"></div>
-                        </div>
-                        
-                        <div class="chart-container">
-                            <canvas id="sentimentChart"></canvas>
-                        </div>
+                    <div class="lifestyle-option" data-category="appetite" data-value="eating_more" data-weight="1">
+                        <div class="lifestyle-icon">🍕</div>
+                        <span>Eating more</span>
+                    </div>
+                    <div class="lifestyle-option" data-category="appetite" data-value="no_change" data-weight="0">
+                        <div class="lifestyle-icon">⚖️</div>
+                        <span>No changes</span>
                     </div>
                 </div>
             </div>
             
-            <div class="history-section">
-                <h2>Stress History</h2>
-                <div id="historyList" class="history-list">
-                    <div class="loading">
-                        <p>No history yet. Your analysis will be saved here.</p>
+            <!-- Social Behavior -->
+            <div class="lifestyle-group">
+                <h4>👥 Social interactions?</h4>
+                <div class="lifestyle-options">
+                    <div class="lifestyle-option" data-category="social" data-value="withdrawing" data-weight="2">
+                        <div class="lifestyle-icon">🚶‍♂️</div>
+                        <span>Withdrawing from others</span>
+                    </div>
+                    <div class="lifestyle-option" data-category="social" data-value="seeking_people" data-weight="0">
+                        <div class="lifestyle-icon">👥</div>
+                        <span>Seeking more contact</span>
+                    </div>
+                    <div class="lifestyle-option" data-category="social" data-value="no_change" data-weight="0">
+                        <div class="lifestyle-icon">😊</div>
+                        <span>No changes</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Daily Functioning -->
+            <div class="lifestyle-group">
+                <h4>📊 Daily responsibilities?</h4>
+                <div class="lifestyle-options">
+                    <div class="lifestyle-option" data-category="functioning" data-value="neglecting" data-weight="3">
+                        <div class="lifestyle-icon">📉</div>
+                        <span>Neglecting tasks</span>
+                    </div>
+                    <div class="lifestyle-option" data-category="functioning" data-value="managing" data-weight="1">
+                        <div class="lifestyle-icon">📈</div>
+                        <span>Managing okay</span>
+                    </div>
+                    <div class="lifestyle-option" data-category="functioning" data-value="no_impact" data-weight="0">
+                        <div class="lifestyle-icon">✅</div>
+                        <span>No impact</span>
                     </div>
                 </div>
             </div>
         </div>
+        
+        <div class="section-nav">
+            <button class="btn-prev" onclick="prevSection('sectionLifestyle', 'sectionCognitive')">← Back</button>
+            <button class="btn-next" onclick="nextSection('sectionLifestyle', 'sectionContext')">Next →</button>
+        </div>
     </div>
 
-    <script>
-        let sentimentChart = null;
-        const API_BASE = 'http://localhost:5001';
-        let userId = 'user_' + Math.random().toString(36).substr(2, 9);
-        let history = [];
+    <!-- Section 5: Context & Duration (Updated) -->
+    <div class="assessment-section" id="sectionContext">
+        <h3>⏰ Context & Duration</h3>
+        <p>Help us understand your stress better</p>
+        
+        <div class="context-grid">
+            <div class="context-group">
+                <h4>How long have you felt this way?</h4>
+                <div class="duration-options">
+                    <div class="duration-option" data-duration="minutes" data-weight="1">
+                        <div class="duration-icon">🕐</div>
+                        <span>Just started</span>
+                    </div>
+                    <div class="duration-option" data-duration="hours" data-weight="2">
+                        <div class="duration-icon">🕒</div>
+                        <span>Few hours</span>
+                    </div>
+                    <div class="duration-option" data-duration="day" data-weight="3">
+                        <div class="duration-icon">🕔</div>
+                        <span>All day</span>
+                    </div>
+                    <div class="duration-option" data-duration="days" data-weight="4">
+                        <div class="duration-icon">🕗</div>
+                        <span>Several days</span>
+                    </div>
+                    <div class="duration-option" data-duration="weeks" data-weight="5">
+                        <div class="duration-icon">📅</div>
+                        <span>Weeks</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="context-group">
+                <h4>Main stress source?</h4>
+                <div class="source-options">
+                    <div class="source-option" data-source="work" data-weight="3">
+                        <div class="source-icon">💼</div>
+                        <span>Work</span>
+                    </div>
+                    <div class="source-option" data-source="relationships" data-weight="3">
+                        <div class="source-icon">👥</div>
+                        <span>Relationships</span>
+                    </div>
+                    <div class="source-option" data-source="health" data-weight="4">
+                        <div class="source-icon">🏥</div>
+                        <span>Health</span>
+                    </div>
+                    <div class="source-option" data-source="financial" data-weight="3">
+                        <div class="source-icon">💰</div>
+                        <span>Financial</span>
+                    </div>
+                    <div class="source-option" data-source="academic" data-weight="2">
+                        <div class="source-icon">📚</div>
+                        <span>Academic</span>
+                    </div>
+                    <div class="source-option" data-source="uncertainty" data-weight="3">
+                        <div class="source-icon">❓</div>
+                        <span>Uncertainty</span>
+                    </div>
+                    <!-- NEW: Additional Stress Sources -->
+                    <div class="source-option" data-source="family" data-weight="3">
+                        <div class="source-icon">👨‍👩‍👧‍👦</div>
+                        <span>Family</span>
+                    </div>
+                    <div class="source-option" data-source="life_changes" data-weight="3">
+                        <div class="source-icon">🔄</div>
+                        <span>Life Changes</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- NEW: Coping Mechanisms -->
+            <div class="context-group">
+                <h4>🛡️ How are you coping?</h4>
+                <div class="coping-options">
+                    <div class="coping-option" data-coping="exercise" data-weight="-1">
+                        <div class="coping-icon">🏃‍♂️</div>
+                        <span>Exercise</span>
+                    </div>
+                    <div class="coping-option" data-coping="talking" data-weight="-1">
+                        <div class="coping-icon">💬</div>
+                        <span>Talking to others</span>
+                    </div>
+                    <div class="coping-option" data-coping="relaxation" data-weight="-1">
+                        <div class="coping-icon">🧘‍♀️</div>
+                        <span>Relaxation</span>
+                    </div>
+                    <div class="coping-option" data-coping="hobbies" data-weight="-1">
+                        <div class="coping-icon">🎨</div>
+                        <span>Hobbies</span>
+                    </div>
+                    <div class="coping-option" data-coping="nothing" data-weight="2">
+                        <div class="coping-icon">😔</div>
+                        <span>Not coping well</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section-nav">
+            <button class="btn-prev" onclick="prevSection('sectionContext', 'sectionLifestyle')">← Back</button>
+            <button class="btn-next" onclick="calculateComprehensiveScore()">Get Analysis →</button>
+        </div>
+    </div>
+</section>
 
-        async function analyzeStress() {
-            const text = document.getElementById('userInput').value.trim();
-            if (!text) {
-                alert('Please enter some text to analyze');
-                return;
-            }
-
-            showLoading();
-            
-            try {
-                const response = await fetch(API_BASE + '/estimate', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        text: text,
-                        user_id: userId
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                displayResults(data);
-                addToHistory(data);
-                
-            } catch (error) {
-                showError('Failed to analyze text: ' + error.message);
-            }
-        }
-
-        function displayResults(data) {
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('resultsContent').style.display = 'block';
-            
-            // Update stress level and score
-            document.getElementById('stressScore').textContent = data.stress_score;
-            
-            const levelBadge = document.getElementById('levelBadge');
-            levelBadge.textContent = data.stress_level;
-            levelBadge.className = 'level-badge level-' + data.stress_level.toLowerCase();
-            
-            // Update explanation
-            document.getElementById('explanationText').textContent = data.explanation;
-            
-            // Update keywords
-            const keywordsContainer = document.getElementById('keywordsContainer');
-            keywordsContainer.innerHTML = '';
-            
-            if (data.keywords && data.keywords.length > 0) {
-                data.keywords.forEach(keyword => {
-                    const span = document.createElement('span');
-                    span.className = 'keyword';
-                    span.textContent = keyword;
-                    keywordsContainer.appendChild(span);
-                });
-            } else {
-                keywordsContainer.innerHTML = '<span class="keyword">No stress keywords detected</span>';
-            }
-            
-            // Update sentiment chart
-            updateSentimentChart(data.sentiment_scores);
-        }
-
-        function updateSentimentChart(sentiment) {
-            const ctx = document.getElementById('sentimentChart').getContext('2d');
-            
-            if (sentimentChart) {
-                sentimentChart.destroy();
-            }
-            
-            sentimentChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Positive', 'Negative', 'Neutral'],
-                    datasets: [{
-                        data: [
-                            Math.round(sentiment.positive * 100),
-                            Math.round(sentiment.negative * 100),
-                            Math.round(sentiment.neutral * 100)
-                        ],
-                        backgroundColor: [
-                            '#4cd964',
-                            '#ff3b30',
-                            '#8e8e93'
-                        ],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '70%',
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                font: {
-                                    size: 14
-                                }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return context.label + ': ' + context.raw + '%';
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function addToHistory(data) {
-            history.unshift({
-                timestamp: new Date().toLocaleString(),
-                text: data.input_text.substring(0, 50) + (data.input_text.length > 50 ? '...' : ''),
-                score: data.stress_score,
-                level: data.stress_level
-            });
-            
-            // Keep only last 10 items
-            history = history.slice(0, 10);
-            
-            updateHistoryDisplay();
-        }
-
-        function updateHistoryDisplay() {
-            const historyList = document.getElementById('historyList');
-            
-            if (history.length === 0) {
-                historyList.innerHTML = '<div class="loading"><p>No history yet. Your analysis will be saved here.</p></div>';
-                return;
-            }
-            
-            historyList.innerHTML = '';
-            
-            history.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'history-item';
-                
-                div.innerHTML = `
-                    <div>
-                        <strong>${item.score}/10</strong>
-                        <span class="level-badge level-${item.level.toLowerCase()}" style="font-size: 0.8em; padding: 3px 10px;">
-                            ${item.level}
-                        </span>
-                        <div style="font-size: 0.9em; color: #6c757d; margin-top: 5px;">
-                            ${item.text}
+            <!-- Results Section -->
+            <section class="results-section" id="resultsSection" style="display: none;">
+                <h2>📊 Your Stress Analysis</h2>
+                <div class="results-content">
+                    <div class="stress-level">
+                        <span id="levelBadge" class="level-badge">Low</span>
+                    </div>
+                    
+                    <div class="score-display">
+                        <span id="stressScore">0.0</span>/10
+                    </div>
+                    
+                    <div class="explanation">
+                        <p id="explanationText">Your analysis will appear here...</p>
+                    </div>
+                    
+                    <div class="analysis-details">
+                        <div class="detail-item">
+                            <strong>Input Method:</strong> <span id="inputMethod">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <strong>Mood Label:</strong> <span id="moodLabel">-</span>
+                        </div>
+                        <div class="detail-item" id="trendItem" style="display: none;">
+                            <strong>Trend:</strong> <span id="trendValue">-</span>
                         </div>
                     </div>
-                    <div style="font-size: 0.8em; color: #6c757d;">
-                        ${item.timestamp}
+
+                    <div class="chart-container" id="chartContainer">
+                        <div class="chart-wrapper">
+                            <canvas id="historyChart"></canvas>
+                        </div>
+                        <div class="chart-loading" id="chartLoading" style="display: none;">
+                            📊 Loading your history...
+                        </div>
                     </div>
-                `;
-                
-                historyList.appendChild(div);
-            });
-        }
 
-        function showLoading() {
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('resultsContent').style.display = 'none';
-            document.getElementById('loading').innerHTML = '<p>Analyzing your text... ⏳</p>';
-        }
+                    <div class="stats-container" id="statsContainer" style="display: none;">
+                        <!-- Statistics will be loaded here dynamically -->
+                    </div>
 
-        function showError(message) {
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('resultsContent').style.display = 'none';
-            document.getElementById('loading').innerHTML = `
-                <div class="error">
-                    <p>${message}</p>
-                    <p>Make sure your Stress Estimator Agent is running on port 5001.</p>
+                    <button class="btn-secondary" onclick="resetAnalysis()">
+                        🔄 Analyze Again
+                    </button>
                 </div>
-            `;
-        }
+            </section>
+        </div>
 
-        // Load history on page load
-        updateHistoryDisplay();
-    </script>
+        <footer>
+            <p>💡 <strong>Innovation:</strong> No typing or talking required! Perfect for when you're feeling stressed.</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
 </body>
 </html>
