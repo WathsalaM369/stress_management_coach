@@ -1,12 +1,11 @@
-transformers==4.30.0
-torch==2.0.1
-numpy==1.24.3
-pandas==2.0.2
-scikit-learn==1.2.2
-
-python-dotenv==1.0.0
-
 flask==3.0.0
 flask-cors==4.0.0
+fastapi>=0.104.0
+uvicorn>=0.24.0
+
+# ==================== AI APIs ====================
+openai>=1.0.0
 google-generativeai==0.3.2
+
+# ==================== UTILITIES ====================
 python-dotenv==1.0.0

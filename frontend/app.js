@@ -1431,3 +1431,188 @@ window.debugAuth = function() {
         .then(r => r.json())
         .then(console.log);
 };
+
+//Vinusha
+// Motivation functionality
+let currentMotivationData = null;
+let isAudioPlaying = false;
+
+function showMotivationPage() {
+    // Hide results and show motivation section
+    document.getElementById('resultsSection').style.display = 'none';
+    document.getElementById('motivationSection').style.display = 'block';
+    
+    // Get stress data from results
+    const stressScore = parseFloat(document.getElementById('stressScore').textContent);
+    const stressLevel = document.getElementById('levelBadge').textContent;
+    
+    // Update motivation section with stress data
+    document.getElementById('motivationStressLevel').textContent = stressScore;
+    
+    // Generate motivational message
+    generateMotivationalMessage(stressScore, stressLevel);
+}
+
+function goBackToResults() {
+    document.getElementById('motivationSection').style.display = 'none';
+    document.getElementById('resultsSection').style.display = 'block';
+}
+
+async function generateMotivationalMessage(stressScore, stressLevel) {
+    const typingIndicator = document.getElementById('typingIndicator');
+    const motivationText = document.getElementById('motivationText');
+    const playButton = document.getElementById('playButton');
+    
+    // Show typing indicator
+    typingIndicator.style.display = 'block';
+    motivationText.style.display = 'none';
+    playButton.disabled = true;
+    
+    try {
+        const response = await fetch('/api/generate-motivation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                stress_level: stressScore,
+                stress_category: stressLevel,
+                user_message: '',
+                generate_audio: true,
+                play_audio: false
+            })
+        });
+        
+        const data = await response.json();
+        currentMotivationData = data;
+        
+        // Display message
+        typingIndicator.style.display = 'none';
+        motivationText.style.display = 'block';
+        motivationText.textContent = data.motivational_message;
+        
+        // Enable audio if available
+        if (data.audio_file_path) {
+            playButton.disabled = false;
+        }
+        
+    } catch (error) {
+        console.error('Error generating motivation:', error);
+        typingIndicator.style.display = 'none';
+        motivationText.style.display = 'block';
+        motivationText.textContent = "I'm here to support you through this challenging time. Remember that every small step forward counts, and you're doing better than you think.";
+    }
+}
+
+async function toggleAudio() {
+    if (!currentMotivationData || !currentMotivationData.audio_file_path) return;
+    
+    const playButton = document.getElementById('playButton');
+    const playText = document.getElementById('playText');
+    const audioWave = document.getElementById('audioWave');
+    
+    if (!isAudioPlaying) {
+        // Start playing
+        playButton.classList.add('playing');
+        playText.textContent = 'Playing...';
+        isAudioPlaying = true;
+        
+        try {
+            const response = await fetch('/api/play-audio', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    audio_path: currentMotivationData.audio_file_path
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Simulate audio visualization
+                animateAudioWave(audioWave);
+            }
+        } catch (error) {
+            console.error('Error playing audio:', error);
+        }
+        
+    } else {
+        // Stop playing (simulated - you might need actual audio control)
+        resetAudioControls();
+    }
+}
+
+function animateAudioWave(audioWave) {
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += 2;
+        audioWave.style.width = progress + '%';
+        
+        if (progress >= 100) {
+            clearInterval(interval);
+            setTimeout(() => {
+                resetAudioControls();
+            }, 500);
+        }
+    }, 100);
+}
+
+function resetAudioControls() {
+    const playButton = document.getElementById('playButton');
+    const playText = document.getElementById('playText');
+    const audioWave = document.getElementById('audioWave');
+    
+    playButton.classList.remove('playing');
+    playText.textContent = 'Listen to Message';
+    audioWave.style.width = '0%';
+    isAudioPlaying = false;
+}
+
+function startBreathingExercise() {
+    document.getElementById('breathingExercise').style.display = 'block';
+}
+
+function stopBreathingExercise() {
+    document.getElementById('breathingExercise').style.display = 'none';
+    showTemporaryMessage("Great job! Taking deep breaths can really help reduce stress. 🎉");
+}
+
+function showAffirmations() {
+    const affirmations = [
+        "You are capable of amazing things.",
+        "Your feelings are valid and important.",
+        "Progress, not perfection, is what matters.",
+        "You've survived 100% of your bad days so far.",
+        "This moment is just a moment, and it will pass."
+    ];
+    
+    const randomAffirmation = affirmations[Math.floor(Math.random() * affirmations.length)];
+    document.getElementById('motivationText').textContent = `💝 ${randomAffirmation}`;
+}
+
+function saveMotivation() {
+    if (currentMotivationData) {
+        // In a real app, you'd save to localStorage or send to backend
+        showTemporaryMessage("Motivation saved to your favorites! 💾");
+    }
+}
+
+function generateNewMotivation() {
+    const stressScore = parseFloat(document.getElementById('motivationStressLevel').textContent);
+    const stressLevel = document.getElementById('levelBadge').textContent;
+    generateMotivationalMessage(stressScore, stressLevel);
+}
+
+function showTemporaryMessage(message) {
+    const motivationText = document.getElementById('motivationText');
+    const originalText = motivationText.textContent;
+    
+    motivationText.textContent = message;
+    
+    setTimeout(() => {
+        motivationText.textContent = originalText;
+    }, 3000);
+    
+}
