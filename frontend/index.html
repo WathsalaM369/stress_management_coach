@@ -609,11 +609,44 @@
             </section>
         </div>
 
+        <!-- Button to direct activity recommender - Senuthi's part -->
+        <div style="text-align: center; margin: 30px 0;">
+            <button onclick="goToActivityRecommender()" 
+                class="btn-primary" 
+                style="padding: 15px 40px; font-size: 18px; cursor: pointer; border: none;">
+                🎯 Get Activity Recommendations
+            </button>
+        </div>
+        <!-- end of Button to direct activity recommender - Senuthi's part -->
+
         <footer>
             <p>💡 <strong>Innovation:</strong> No typing or talking required! Perfect for when you're feeling stressed.</p>
         </footer>
     </div>
 
     <script src="app.js"></script>
+
+    <!-- Add this script at the bottom of index.html, before </body> -->
+    <script>
+    function goToActivityRecommender() {
+        // Get current stress score if available
+        const scoreElement = document.getElementById('stressScore');
+        const levelElement = document.getElementById('levelBadge');
+        
+        if (scoreElement && levelElement && scoreElement.textContent !== '0.0') {
+            // Pass stress data via URL parameters
+            const stressScore = scoreElement.textContent;
+            const stressLevel = levelElement.textContent;
+            window.location.href = `/activity-recommender?stress_score=${stressScore}&stress_level=${stressLevel}`;
+        } else {
+            // No assessment yet, just go to the page
+            window.location.href = '/activity-recommender';
+        }
+    }
+    </script>
+
 </body>
 </html>
+
+
+
