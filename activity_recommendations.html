@@ -137,7 +137,7 @@
                 <h2>📊 Your Current Stress Level</h2>
                 <div class="results-content">
                     <div class="stress-level">
-                        <span id="currentLevelBadge" class="level-badge">Loading...</span>
+                        <span id="currentLevelBadge" class="level-badge" style = "color: black !important;">Loading...</span>
                     </div>
                     <div class="score-display">
                         <span id="currentScore">-</span>/10
@@ -212,8 +212,22 @@
                     </div>
                 </div>
 
-                <button class="btn-primary" onclick="getRecommendations()" id="getRecommendationsBtn">
-                    ✨ Get AI Recommendations
+                <button class="btn-primary" onclick="getRecommendations()" id="getRecommendationsBtn"
+                        style="background: linear-gradient(135deg, #D6A2E8 0%, #9b59b6 100%); 
+                            
+                            border: none; 
+                            border-radius: 8px; 
+                            height: 1in; 
+                            width: fit-content; 
+                            padding: 0 20px; 
+                            font-weight: bold; 
+                            cursor: pointer; 
+                            display: block; margin: 0 auto;
+                            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                            flex: 1.5;
+                            max-width: 400px;
+                            font-size: 20px !important; ">
+                    Get AI Recommendations
                 </button>
             </section>
 
@@ -321,7 +335,18 @@
                 <div class="explanation" style="text-align: center; padding: 40px;">
                     <h3>📊 No Stress Assessment Found</h3>
                     <p>Please complete a stress assessment first to get personalized recommendations.</p>
-                    <a href="/" class="btn-primary" style="display: inline-block; margin-top: 20px; text-decoration: none;">
+                    <a href="/" class="btn-primary" style="display: inline-block; margin-top: 20px; text-decoration: none; 
+                                background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%) !important;
+                                color: white !important;
+                                border: none;
+                                border-radius: 8px;
+                                height: auto;
+                                width: fit-content;
+                                padding: 12px 24px;
+                                font-weight: bold;
+                                cursor: pointer;
+                                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                                text-align: center;">
                         Take Assessment Now
                     </a>
                 </div>
@@ -359,6 +384,9 @@
 
         async function getRecommendations() {
             const btn = document.getElementById('getRecommendationsBtn');
+
+
+
             btn.disabled = true;
             btn.textContent = '🤖 Getting Recommendations...';
             
@@ -389,6 +417,7 @@
                 btn.disabled = false;
                 btn.textContent = '✨ Get AI Recommendations';
                 document.getElementById('loadingState').style.display = 'none';
+                
             }
         }
 
@@ -455,4 +484,4 @@
 </body>
 </html>
 
-<!-- End Section -->
+<!-- End of the Section -->
