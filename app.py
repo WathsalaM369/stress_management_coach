@@ -93,7 +93,7 @@ flask_app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 # Enhanced CORS with Gemini support for Flask
 CORS(flask_app, supports_credentials=True, origins=['http://localhost:3000', 'http://localhost:5001'])
 # Enhanced CORS with Gemini support
-CORS(app, supports_credentials=True, origins=['http://localhost:3000', 'http://localhost:5001'])
+CORS(flask_app, supports_credentials=True, origins=['http://localhost:3000', 'http://localhost:5001'])
 
 # =============================================================================
 # SENUTHI'S ACTIVITY RECOMMENDER SETUP
@@ -109,14 +109,14 @@ class MockStressEstimator:
         if any(word in text_lower for word in ['stress', 'anxious', 'overwhelm', 'pressure', 'worry']):
             return {"stress_level": "High", "score": 0.8, "message": "You seem to be experiencing high stress levels"}
         elif any(word in text_lower for word in ['tired', 'busy', 'hectic', 'lot to do']):
-            return {"stress_level": "Medium", "score": 0.6, "message": "You appear to have moderate stress"}
+            return {"stress_level": "Medium", "score": 0.6, "message": "You flask_appear to have moderate stress"}
         else:
             return {"stress_level": "Low", "score": 0.3, "message": "You seem to be doing well"}
 
 agent = MockStressEstimator()
 
 # Register activity recommender blueprint
-app.register_blueprint(activity_bp, url_prefix='/api/activity_recommender')
+flask_app.register_blueprint(activity_bp, url_prefix='/api/activity_recommender')
 
 # =============================================================================
 # WATHSALA'S STRESS ESTIMATOR SETUP
@@ -185,7 +185,7 @@ def get_current_user_id():
 # SENUTHI'S ACTIVITY RECOMMENDER WEB ROUTES
 # =============================================================================
 
-@app.route('/')
+@flask_app.route('/')
 def index():
     """Serve Wathsala's stress estimator frontend"""
     try:
@@ -266,7 +266,7 @@ def index():
         </html>
         '''
 
-@app.route('/stress-assessment')
+@flask_app.route('/stress-assessment')
 def stress_assessment():
     """Wathsala's stress assessment interface"""
     try:
@@ -274,7 +274,7 @@ def stress_assessment():
     except Exception as e:
         return jsonify({"error": "Stress assessment frontend not found"}), 404
 
-@app.route('/activity-recommender')
+@flask_app.route('/activity-recommender')
 def activity_recommender():
     """Senuthi's activity recommender interface with AI"""
     try:
@@ -309,7 +309,7 @@ def activity_recommender():
             </html>
             ''', 404
 
-@app.route('/onboard', methods=['GET', 'POST'])
+@flask_app.route('/onboard', methods=['GET', 'POST'])
 def onboard():
     if request.method == 'POST':
         username = request.form.get('username')
@@ -365,11 +365,11 @@ def onboard():
     
     return render_template('user_onboard.html')
 
-@app.route('/recommend-success/<int:user_id>')
+@flask_app.route('/recommend-success/<int:user_id>')
 def recommend_success(user_id):
     return render_template('activity_rec_result.html', user_id=user_id, message="Account created successfully!")
 
-@app.route('/recommend', methods=['GET', 'POST'])
+@flask_app.route('/recommend', methods=['GET', 'POST'])
 def recommend():
     if request.method == 'POST':
         username = request.form.get('username')
@@ -441,7 +441,7 @@ def recommend():
     username = request.args.get('username', '')
     return render_template('activity_rec_form.html', username=username)
 
-@app.route('/users')
+@flask_app.route('/users')
 def users_list():
     """Display all registered users"""
     try:
@@ -454,7 +454,7 @@ def users_list():
     except requests.exceptions.RequestException as e:
         return render_template('users_list.html', users=[], error=f"Connection error: {str(e)}")
 
-@app.route('/api/users', methods=['GET'])
+@flask_app.route('/api/users', methods=['GET'])
 def get_all_users():
     try:
         response = requests.get('http://localhost:5001/api/activity_recommender/users')
@@ -465,14 +465,14 @@ def get_all_users():
     except:
         return jsonify([])
 
-@app.route('/api/estimate_stress', methods=['POST'])
+@flask_app.route('/api/estimate_stress', methods=['POST'])
 def estimate_stress():
     data = request.get_json()
     text = data.get('text', '')
     result = agent.estimate_stress_level(text)
     return jsonify(result)
 
-@app.route('/api/get-activity-recommendations', methods=['POST', 'OPTIONS'])
+@flask_app.route('/api/get-activity-recommendations', methods=['POST', 'OPTIONS'])
 def get_activity_recommendations():
     """Generate AI-powered activity recommendations based on stress level"""
     try:
@@ -663,7 +663,7 @@ Make activities practical, evidence-based, and immediately actionable. Focus on 
 # WATHSALA'S STRESS ESTIMATOR API ROUTES
 # =============================================================================
 
-@app.route('/api/register', methods=['POST'])
+@flask_app.route('/api/register', methods=['POST'])
 def register():
     try:
         data = request.get_json()
@@ -768,7 +768,7 @@ def get_current_user_id():
     return user_id
 
 @flask_app.route('/api/analyze-mood', methods=['POST', 'OPTIONS'])
-@app.route('/api/analyze-mood', methods=['POST', 'OPTIONS'])
+@flask_app.route('/api/analyze-mood', methods=['POST', 'OPTIONS'])
 def analyze_mood():
     if request.method == 'OPTIONS':
         return jsonify({"status": "preflight"})
@@ -908,7 +908,7 @@ def get_user_trend_fixed(user_id):
     
 @flask_app.route('/api/history/<user_id>', methods=['GET'])
 
-@app.route('/api/history/<user_id>', methods=['GET'])
+@flask_app.route('/api/history/<user_id>', methods=['GET'])
 def get_user_history(user_id):
     try:
         print(f"📊 Getting history for user: {user_id}")
@@ -1116,7 +1116,12 @@ def test_endpoint():
 def serve_frontend():
     try:
         return send_from_directory('frontend', 'index.html')
-@app.route('/api/test-gemini', methods=['GET'])
+    except Exception as e:
+        print(f"❌ Error serving frontend: {e}")
+        return "Error loading frontend", 500
+    
+
+@flask_app.route('/api/test-gemini', methods=['GET'])
 def test_gemini():
     """Test if Gemini is working"""
     try:
@@ -1144,7 +1149,7 @@ def test_gemini():
             "error": str(e)
         }), 500
 
-@app.route('/api/debug/users', methods=['GET'])
+@flask_app.route('/api/debug/users', methods=['GET'],endpoint='debug_users_v2')
 def debug_users():
     """Debug endpoint to see all registered users"""
     return jsonify({
@@ -1152,7 +1157,7 @@ def debug_users():
         "users": users_db
     })
 
-@app.route('/api/debug/session', methods=['GET'])
+@flask_app.route('/api/debug/session', methods=['GET'], endpoint='debug_session_v2')
 def debug_session():
     """Debug endpoint to check session"""
     return jsonify({
@@ -1361,7 +1366,7 @@ if __name__ == '__main__':
     print("   POST /api/play-audio")
     print("   POST /api/analyze-with-motivation")
     print("   POST /api/analyze-mood-with-motivation")
-    print(f"   ✅ Gemini Analysis: {estimator.use_llm}")
+    print(f"   ✅ Gemini Analysis: {flask_estimator.use_llm}")
     print("")
     print("💾 Database: SQLite with user storage")
     print("=" * 60)
@@ -1372,4 +1377,4 @@ if __name__ == '__main__':
     # You can choose which one to run, or run both in different processes
     run_flask()  # Running Flask version by default
     # run_fastapi()  # Uncomment to run FastAPI version instead
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    flask_app.run(debug=True, host='0.0.0.0', port=5001)
