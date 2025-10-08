@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity Recommendations - AI Powered</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .recommendations-list {
+            display: grid;
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .recommendation-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            padding: 25px;
+            color: white;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .recommendation-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .recommendation-card h3 {
+            margin: 0 0 15px 0;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .recommendation-card .activity-icon {
+            font-size: 32px;
+        }
+
+        .recommendation-card .activity-description {
+            font-size: 16px;
+            line-height: 1.6;
+            margin: 15px 0;
+            opacity: 0.95;
+        }
+
+        .recommendation-card .activity-meta {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.3);
+            font-size: 14px;
+        }
+
+        .recommendation-card .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .recommendation-card .activity-steps {
+            margin-top: 20px;
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .recommendation-card .activity-steps h4 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+        }
+
+        .recommendation-card .activity-steps ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .recommendation-card .activity-steps li {
+            margin: 5px 0;
+            line-height: 1.5;
+        }
+
+        .recommendation-card.physical {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .recommendation-card.creative {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .recommendation-card.mindful {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .recommendation-card.social {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+        .time-option.active, .preference-option.active {
+            border: 3px solid #667eea;
+            transform: scale(1.05);
+        }
+
+        .ai-insight {
+            background: rgba(102, 126, 234, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border-left: 4px solid #667eea;
+        }
+
+        .ai-insight h3 {
+            margin: 0 0 10px 0;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 Smart Activity Recommendations</h1>
+            <p class="subtitle">AI-powered activities tailored to your stress level</p>
+            <div class="user-info" id="userInfo">
+                <span id="usernameDisplay"></span>
+                <a href="/" class="btn-logout" style="text-decoration: none;">← Back to Assessment</a>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Stress Level Display -->
+            <section class="game-section" id="stressDisplay">
+                <h2>📊 Your Current Stress Level</h2>
+                <div class="results-content">
+                    <div class="stress-level">
+                        <span id="currentLevelBadge" class="level-badge">Loading...</span>
+                    </div>
+                    <div class="score-display">
+                        <span id="currentScore">-</span>/10
+                    </div>
+                    <div class="explanation">
+                        <p id="stressExplanation">Getting your stress information...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Preferences Section -->
+            <section class="quick-selection" id="preferencesSection">
+                <h2>⚙️ Customize Your Recommendations</h2>
+                
+                <div class="selector-group">
+                    <h3>⏰ How much time do you have?</h3>
+                    <div class="emoji-selector">
+                        <div class="emoji-option time-option" data-minutes="5">
+                            <span>⚡</span>
+                            <small>5 minutes</small>
+                        </div>
+                        <div class="emoji-option time-option" data-minutes="10">
+                            <span>🕐</span>
+                            <small>10 minutes</small>
+                        </div>
+                        <div class="emoji-option time-option active" data-minutes="15">
+                            <span>🕑</span>
+                            <small>15 minutes</small>
+                        </div>
+                        <div class="emoji-option time-option" data-minutes="30">
+                            <span>🕒</span>
+                            <small>30 minutes</small>
+                        </div>
+                        <div class="emoji-option time-option" data-minutes="60">
+                            <span>🕐</span>
+                            <small>1 hour</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="selector-group">
+                    <h3>🎨 Activity Type Preferences</h3>
+                    <div class="scene-selector">
+                        <div class="scene-option preference-option" data-type="physical">
+                            <div class="scene-visual" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                <span style="font-size: 40px;">🏃‍♂️</span>
+                            </div>
+                            <span>Physical</span>
+                            <small>Movement & Exercise</small>
+                        </div>
+                        <div class="scene-option preference-option" data-type="creative">
+                            <div class="scene-visual" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                                <span style="font-size: 40px;">🎨</span>
+                            </div>
+                            <span>Creative</span>
+                            <small>Art & Expression</small>
+                        </div>
+                        <div class="scene-option preference-option" data-type="mindful">
+                            <div class="scene-visual" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                                <span style="font-size: 40px;">🧘‍♀️</span>
+                            </div>
+                            <span>Mindful</span>
+                            <small>Calm & Relaxation</small>
+                        </div>
+                        <div class="scene-option preference-option" data-type="social">
+                            <div class="scene-visual" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                                <span style="font-size: 40px;">👥</span>
+                            </div>
+                            <span>Social</span>
+                            <small>Connect with Others</small>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn-primary" onclick="getRecommendations()" id="getRecommendationsBtn">
+                    ✨ Get AI Recommendations
+                </button>
+            </section>
+
+            <!-- Recommendations Section -->
+            <section class="results-section" id="recommendationsSection" style="display: none;">
+                <h2>🌟 Your Personalized Activities</h2>
+                <div class="results-content">
+                    <div id="recommendationsList" class="recommendations-list">
+                        <!-- Recommendations will be loaded here -->
+                    </div>
+                    
+                    <button class="btn-secondary" onclick="showPreferences()">
+                        🔄 Adjust Preferences
+                    </button>
+                </div>
+            </section>
+
+            <!-- Loading State -->
+            <div id="loadingState" style="display: none; text-align: center; padding: 40px;">
+                <div class="score-display" style="font-size: 48px;">🤖</div>
+                <h3>AI is crafting your personalized recommendations...</h3>
+                <p>Analyzing your stress level and preferences</p>
+            </div>
+        </div>
+
+        <footer>
+            <p>💡 <strong>Powered by Gemini AI</strong> - Activities personalized just for you</p>
+        </footer>
+    </div>
+
+    <script>
+        let currentStressScore = 0;
+        let currentStressLevel = 'Medium';
+        let selectedTime = 15;
+        let selectedPreferences = [];
+
+        // Get stress level from URL parameters or session
+        function loadStressLevel() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const score = urlParams.get('stress_score');
+            const level = urlParams.get('stress_level');
+
+            if (score && level) {
+                currentStressScore = parseFloat(score);
+                currentStressLevel = level;
+                displayStressLevel();
+            } else {
+                // Try to get from session/API
+                fetchCurrentStressLevel();
+            }
+        }
+
+        async function fetchCurrentStressLevel() {
+            try {
+                const response = await fetch('/api/current-user');
+                const data = await response.json();
+                
+                if (data.logged_in) {
+                    document.getElementById('usernameDisplay').textContent = `Hello, ${data.username}!`;
+                    
+                    // Get latest stress assessment
+                    const historyResponse = await fetch(`/api/history/${data.user_id}`);
+                    const historyData = await historyResponse.json();
+                    
+                    if (historyData.history && historyData.history.length > 0) {
+                        const latest = historyData.history[0];
+                        currentStressScore = parseFloat(latest.stress_score);
+                        currentStressLevel = latest.stress_level;
+                        displayStressLevel();
+                    } else {
+                        showNoAssessmentMessage();
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching stress level:', error);
+                showNoAssessmentMessage();
+            }
+        }
+
+        function displayStressLevel() {
+            document.getElementById('currentScore').textContent = currentStressScore.toFixed(1);
+            document.getElementById('currentLevelBadge').textContent = currentStressLevel;
+            document.getElementById('currentLevelBadge').className = `level-badge ${currentStressLevel.toLowerCase()}`;
+            
+            const explanations = {
+                'Low': 'Great! You\'re in a calm state. Let\'s find activities to maintain this peace.',
+                'Medium': 'You\'re managing well. Let\'s find activities to help you stay balanced.',
+                'High': 'You\'re experiencing elevated stress. Let\'s find activities to help you relax.',
+                'Very High': 'Your stress is quite high. Let\'s focus on calming activities.',
+                'Critical': 'You need immediate stress relief. These activities can help right now.'
+            };
+            
+            document.getElementById('stressExplanation').textContent = 
+                explanations[currentStressLevel] || 'Let\'s find the right activities for you.';
+        }
+
+        function showNoAssessmentMessage() {
+            document.getElementById('stressDisplay').innerHTML = `
+                <div class="explanation" style="text-align: center; padding: 40px;">
+                    <h3>📊 No Stress Assessment Found</h3>
+                    <p>Please complete a stress assessment first to get personalized recommendations.</p>
+                    <a href="/" class="btn-primary" style="display: inline-block; margin-top: 20px; text-decoration: none;">
+                        Take Assessment Now
+                    </a>
+                </div>
+            `;
+            document.getElementById('preferencesSection').style.display = 'none';
+        }
+
+        // Time selection
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.time-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    document.querySelectorAll('.time-option').forEach(o => o.classList.remove('active'));
+                    this.classList.add('active');
+                    selectedTime = parseInt(this.dataset.minutes);
+                });
+            });
+
+            // Preference selection
+            document.querySelectorAll('.preference-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    this.classList.toggle('active');
+                    const type = this.dataset.type;
+                    
+                    if (selectedPreferences.includes(type)) {
+                        selectedPreferences = selectedPreferences.filter(t => t !== type);
+                    } else {
+                        selectedPreferences.push(type);
+                    }
+                });
+            });
+
+            // Load stress level on page load
+            loadStressLevel();
+        });
+
+        async function getRecommendations() {
+            const btn = document.getElementById('getRecommendationsBtn');
+            btn.disabled = true;
+            btn.textContent = '🤖 Getting Recommendations...';
+            
+            document.getElementById('preferencesSection').style.display = 'none';
+            document.getElementById('loadingState').style.display = 'block';
+
+            try {
+                const response = await fetch('/api/get-activity-recommendations', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        stress_score: currentStressScore,
+                        stress_level: currentStressLevel,
+                        available_minutes: selectedTime,
+                        preferences: selectedPreferences.length > 0 ? selectedPreferences : ['physical', 'creative', 'mindful', 'social']
+                    })
+                });
+
+                const data = await response.json();
+                displayRecommendations(data);
+            } catch (error) {
+                console.error('Error getting recommendations:', error);
+                alert('Failed to get recommendations. Please try again.');
+                showPreferences();
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '✨ Get AI Recommendations';
+                document.getElementById('loadingState').style.display = 'none';
+            }
+        }
+
+        function displayRecommendations(data) {
+            const container = document.getElementById('recommendationsList');
+            
+            let html = '';
+            
+            if (data.ai_insight) {
+                html += `
+                    <div class="ai-insight">
+                        <h3>🤖 AI Insight</h3>
+                        <p>${data.ai_insight}</p>
+                    </div>
+                `;
+            }
+
+            data.recommendations.forEach((rec, index) => {
+                const typeClass = rec.category || 'mindful';
+                html += `
+                    <div class="recommendation-card ${typeClass}">
+                        <h3>
+                            <span class="activity-icon">${rec.icon || '🎯'}</span>
+                            ${rec.name}
+                        </h3>
+                        <div class="activity-description">${rec.description}</div>
+                        <div class="activity-meta">
+                            <div class="meta-item">
+                                <span>⏰</span>
+                                <span>${rec.duration} minutes</span>
+                            </div>
+                            <div class="meta-item">
+                                <span>📊</span>
+                                <span>${rec.difficulty || 'Easy'}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span>🎯</span>
+                                <span>${rec.category || 'Mindful'}</span>
+                            </div>
+                        </div>
+                        ${rec.steps ? `
+                            <div class="activity-steps">
+                                <h4>📝 How to do it:</h4>
+                                <ul>
+                                    ${rec.steps.map(step => `<li>${step}</li>`).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            document.getElementById('recommendationsSection').style.display = 'block';
+            document.getElementById('recommendationsSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function showPreferences() {
+            document.getElementById('recommendationsSection').style.display = 'none';
+            document.getElementById('preferencesSection').style.display = 'block';
+            document.getElementById('preferencesSection').scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>

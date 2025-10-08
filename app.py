@@ -15,7 +15,7 @@ app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 
 # Enhanced CORS with Gemini support
-CORS(app, supports_credentials=True, origins=['http://localhost:3000', 'http://localhost:5000', 'http://localhost:5001'])
+CORS(app, supports_credentials=True, origins=['http://localhost:3000', 'http://localhost:5001'])
 
 # =============================================================================
 # SENUTHI'S ACTIVITY RECOMMENDER SETUP
@@ -81,7 +81,127 @@ def get_current_user_id():
 
 @app.route('/')
 def index():
-    return render_template('activity_rec_index.html')
+    """Serve Wathsala's stress estimator frontend"""
+    try:
+        return send_from_directory('frontend', 'index.html')
+    except Exception as e:
+        # Fallback: if frontend folder doesn't exist, show a simple menu
+        return '''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>MindSoothe - Stress Management System</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    max-width: 800px;
+                    margin: 50px auto;
+                    padding: 20px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                }
+                .container {
+                    background: rgba(255, 255, 255, 0.95);
+                    padding: 40px;
+                    border-radius: 15px;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                    color: #333;
+                }
+                h1 { color: #667eea; margin-bottom: 30px; }
+                .btn {
+                    display: inline-block;
+                    padding: 15px 30px;
+                    margin: 10px;
+                    background: #667eea;
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    transition: all 0.3s;
+                }
+                .btn:hover {
+                    background: #764ba2;
+                    transform: translateY(-2px);
+                    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+                }
+                .btn-secondary {
+                    background: #48bb78;
+                }
+                .btn-secondary:hover {
+                    background: #38a169;
+                }
+                p { font-size: 18px; line-height: 1.6; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🧠 MindSoothe - Stress Management System</h1>
+                <p>Welcome! Choose a feature to get started:</p>
+                
+                <div style="margin-top: 30px;">
+                    <a href="/stress-assessment" class="btn">
+                        📊 Stress Assessment (Wathsala's Feature)
+                    </a>
+                    <br>
+                    <a href="/activity-recommender" class="btn btn-secondary">
+                        🎯 Get Activity Recommendations (Senuthi's Feature)
+                    </a>
+                </div>
+                
+                <div style="margin-top: 40px; padding: 20px; background: #f7fafc; border-radius: 8px;">
+                    <h3 style="color: #667eea;">📍 Quick Links:</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        <li>✅ <a href="/api/health">System Health Check</a></li>
+                        <li>✅ <a href="/users">View All Users</a></li>
+                    </ul>
+                </div>
+            </div>
+        </body>
+        </html>
+        '''
+
+@app.route('/stress-assessment')
+def stress_assessment():
+    """Wathsala's stress assessment interface"""
+    try:
+        return send_from_directory('frontend', 'index.html')
+    except Exception as e:
+        return jsonify({"error": "Stress assessment frontend not found"}), 404
+
+@app.route('/activity-recommender')
+def activity_recommender():
+    """Senuthi's activity recommender interface with AI"""
+    try:
+        # First try templates folder
+        return render_template('activity_recommendations.html')
+    except:
+        # Then try root directory
+        try:
+            with open('activity_recommendations.html', 'r', encoding='utf-8') as f:
+                return f.read()
+        except FileNotFoundError:
+            return '''
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Activity Recommendations</title>
+                <style>
+                    body { font-family: Arial; text-align: center; padding: 50px; }
+                    .error { color: red; }
+                </style>
+            </head>
+            <body>
+                <h1 class="error">⚠️ Activity Recommendations Page Not Found</h1>
+                <p>The file 'activity_recommendations.html' is missing.</p>
+                <p>Please check:</p>
+                <ul style="text-align: left; max-width: 500px; margin: 20px auto;">
+                    <li>File exists in 'templates' folder OR</li>
+                    <li>File exists in root directory (same as app.py)</li>
+                </ul>
+                <a href="/">← Back to Home</a>
+            </body>
+            </html>
+            ''', 404
 
 @app.route('/onboard', methods=['GET', 'POST'])
 def onboard():
@@ -95,7 +215,7 @@ def onboard():
         try:
             # Create user via API
             response = requests.post(
-                'http://localhost:5000/api/activity_recommender/users',
+                'http://localhost:5001/api/activity_recommender/users',
                 json={'username': username},
                 timeout=5
             )
@@ -109,7 +229,7 @@ def onboard():
                 
                 # Set preferences
                 pref_response = requests.put(
-                    f'http://localhost:5000/api/activity_recommender/users/{user_id}/preferences',
+                    f'http://localhost:5001/api/activity_recommender/users/{user_id}/preferences',
                     json={
                         'likes': likes, 
                         'default_available_minutes': default_time
@@ -162,7 +282,7 @@ def recommend():
         
         try:
             # Get all users
-            response = requests.get('http://localhost:5000/api/activity_recommender/users')
+            response = requests.get('http://localhost:5001/api/activity_recommender/users')
             
             if response.status_code == 200:
                 users = response.json()
@@ -182,7 +302,7 @@ def recommend():
                 
                 # Get recommendations
                 rec_response = requests.post(
-                    'http://localhost:5000/api/activity_recommender/recommend',
+                    'http://localhost:5001/api/activity_recommender/recommend',
                     json={
                         'stress_level': stress_level,
                         'user_id': user_id,
@@ -219,7 +339,7 @@ def recommend():
 def users_list():
     """Display all registered users"""
     try:
-        response = requests.get('http://localhost:5000/api/activity_recommender/users')
+        response = requests.get('http://localhost:5001/api/activity_recommender/users')
         if response.status_code == 200:
             users = response.json()
             return render_template('users_list.html', users=users)
@@ -231,7 +351,7 @@ def users_list():
 @app.route('/api/users', methods=['GET'])
 def get_all_users():
     try:
-        response = requests.get('http://localhost:5000/api/activity_recommender/users')
+        response = requests.get('http://localhost:5001/api/activity_recommender/users')
         if response.status_code == 200:
             return jsonify(response.json())
         else:
@@ -245,6 +365,193 @@ def estimate_stress():
     text = data.get('text', '')
     result = agent.estimate_stress_level(text)
     return jsonify(result)
+
+@app.route('/api/get-activity-recommendations', methods=['POST', 'OPTIONS'])
+def get_activity_recommendations():
+    """Generate AI-powered activity recommendations based on stress level"""
+    try:
+        data = request.get_json()
+        print(f"📥 Received recommendation request: {data}")
+        
+        stress_score = data.get('stress_score', 5.0)
+        stress_level = data.get('stress_level', 'Medium')
+        available_minutes = data.get('available_minutes', 15)
+        preferences = data.get('preferences', ['physical', 'creative', 'mindful', 'social'])
+        
+        print(f"🎯 Generating recommendations for stress level: {stress_level} ({stress_score}/10)")
+        print(f"⏰ Available time: {available_minutes} minutes")
+        print(f"🎨 Preferences: {preferences}")
+        
+        # Use Gemini AI to generate recommendations
+        if estimator.use_llm:
+            print("🤖 Using Gemini AI for recommendations...")
+            import google.generativeai as genai
+            
+            # Configure API with the same key as the rest of the system
+            api_key = os.getenv('GOOGLE_API_KEY')
+            genai.configure(api_key=api_key)
+            
+            # Use the model from .env or default to gemini-2.0-flash-001
+            model_name = os.getenv('GEMINI_MODEL', 'models/gemini-2.0-flash-001')
+            print(f"🤖 Using model: {model_name}")
+            
+            prompt = f"""You are a stress management expert. Generate 4-5 personalized activity recommendations for someone with:
+
+Stress Level: {stress_level} ({stress_score}/10)
+Available Time: {available_minutes} minutes
+Preferred Activity Types: {', '.join(preferences)}
+
+For each activity, provide:
+1. Name (short, catchy)
+2. Description (2-3 sentences explaining benefits)
+3. Duration (in minutes, should fit within {available_minutes} minutes)
+4. Category (one of: physical, creative, mindful, social)
+5. Difficulty (Easy, Moderate, or Challenging)
+6. Icon (single emoji that represents the activity)
+7. Steps (3-5 simple steps to do the activity)
+
+Also provide a brief AI insight (2-3 sentences) explaining why these activities are good for their current stress level.
+
+Return ONLY a valid JSON object with this structure:
+{{
+    "ai_insight": "Brief explanation here",
+    "recommendations": [
+        {{
+            "name": "Activity Name",
+            "description": "Why this helps",
+            "duration": 10,
+            "category": "mindful",
+            "difficulty": "Easy",
+            "icon": "🧘",
+            "steps": ["Step 1", "Step 2", "Step 3"]
+        }}
+    ]
+}}
+
+Make activities practical, evidence-based, and immediately actionable. Focus on activities that can reduce {stress_level.lower()} stress."""
+
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                
+                print("✅ Gemini response received")
+                
+                # Parse the JSON response
+                import re
+                response_text = response.text.strip()
+                print(f"📄 Raw response length: {len(response_text)} characters")
+                
+                # Remove markdown code blocks if present
+                response_text = re.sub(r'```json\s*|\s*```', '', response_text)
+                
+                recommendations_data = json.loads(response_text)
+                
+                print(f"✅ Generated {len(recommendations_data.get('recommendations', []))} AI recommendations")
+                return jsonify(recommendations_data)
+                
+            except json.JSONDecodeError as e:
+                print(f"❌ JSON Parse Error: {e}")
+                print(f"📄 Response text: {response_text[:500]}...")
+                # Fallback to simple recommendations
+                print("⚠️ Falling back to simple recommendations")
+                
+        else:
+            print("⚠️ LLM disabled, using fallback recommendations")
+        
+        # Fallback: Simple rule-based recommendations
+        fallback_recommendations = {
+            "ai_insight": f"Based on your {stress_level.lower()} stress level ({stress_score}/10), here are some evidence-based activities that can help you feel better right now.",
+            "recommendations": [
+                {
+                    "name": "Deep Breathing Exercise",
+                    "description": "Calm your nervous system with controlled breathing. This simple technique activates your body's relaxation response and can reduce stress hormones within minutes.",
+                    "duration": 5,
+                    "category": "mindful",
+                    "difficulty": "Easy",
+                    "icon": "🌬️",
+                    "steps": [
+                        "Sit comfortably with your back straight",
+                        "Breathe in slowly through your nose for 4 counts",
+                        "Hold your breath for 4 counts",
+                        "Exhale slowly through your mouth for 6 counts",
+                        "Repeat 10 times, focusing on your breath"
+                    ]
+                },
+                {
+                    "name": "Quick Walk Outside",
+                    "description": "Physical movement and fresh air can instantly boost your mood and reduce stress hormones. Walking combines exercise with a change of environment.",
+                    "duration": min(15, available_minutes),
+                    "category": "physical",
+                    "difficulty": "Easy",
+                    "icon": "🚶‍♂️",
+                    "steps": [
+                        "Put on comfortable shoes",
+                        "Step outside and take a brisk walk",
+                        "Focus on your surroundings - notice 5 things you can see",
+                        "Take deep breaths of fresh air",
+                        "Return feeling refreshed"
+                    ]
+                },
+                {
+                    "name": "Creative Journaling",
+                    "description": "Express your thoughts and feelings on paper. Journaling helps process emotions and gain clarity about what's bothering you.",
+                    "duration": 10,
+                    "category": "creative",
+                    "difficulty": "Easy",
+                    "icon": "📝",
+                    "steps": [
+                        "Grab a notebook or open a document",
+                        "Write freely about what's on your mind",
+                        "Don't worry about grammar or structure",
+                        "Include both feelings and thoughts",
+                        "Read it back if helpful, or just let it out"
+                    ]
+                },
+                {
+                    "name": "Progressive Muscle Relaxation",
+                    "description": "Release physical tension by systematically tensing and relaxing muscle groups. This helps you become aware of tension and learn to release it.",
+                    "duration": 10,
+                    "category": "mindful",
+                    "difficulty": "Easy",
+                    "icon": "💆‍♂️",
+                    "steps": [
+                        "Lie down or sit comfortably",
+                        "Tense your feet for 5 seconds, then release",
+                        "Move up through legs, stomach, arms, and face",
+                        "Notice the difference between tension and relaxation",
+                        "Breathe deeply throughout"
+                    ]
+                }
+            ]
+        }
+        
+        print(f"✅ Returning {len(fallback_recommendations['recommendations'])} fallback recommendations")
+        return jsonify(fallback_recommendations)
+            
+    except Exception as e:
+        print(f"❌ Error generating recommendations: {str(e)}")
+        import traceback
+        print(f"❌ Traceback: {traceback.format_exc()}")
+        return jsonify({
+            "error": str(e),
+            "ai_insight": "We encountered an error generating personalized recommendations.",
+            "recommendations": [
+                {
+                    "name": "Take a Deep Breath",
+                    "description": "Let's start simple. Take 5 deep breaths right now.",
+                    "duration": 2,
+                    "category": "mindful",
+                    "difficulty": "Easy",
+                    "icon": "🌬️",
+                    "steps": [
+                        "Breathe in for 4 counts",
+                        "Hold for 4 counts",
+                        "Breathe out for 6 counts",
+                        "Repeat 5 times"
+                    ]
+                }
+            ]
+        }), 500
 
 # =============================================================================
 # WATHSALA'S STRESS ESTIMATOR API ROUTES
@@ -665,8 +972,38 @@ def test_endpoint():
     return jsonify({
         "message": "Backend is working!",
         "timestamp": datetime.now().isoformat(),
-        "status": "success"
+        "status": "success",
+        "gemini_enabled": estimator.use_llm,
+        "has_api_key": bool(os.getenv('GOOGLE_API_KEY'))
     })
+
+@app.route('/api/test-gemini', methods=['GET'])
+def test_gemini():
+    """Test if Gemini is working"""
+    try:
+        import google.generativeai as genai
+        api_key = os.getenv('GOOGLE_API_KEY')
+        
+        if not api_key:
+            return jsonify({"error": "No API key found in environment"}), 500
+            
+        genai.configure(api_key=api_key)
+        # Use the model from .env
+        model_name = os.getenv('GEMINI_MODEL', 'models/gemini-2.0-flash-001')
+        model = genai.GenerativeModel(model_name)
+        response = model.generate_content("Say 'Hello! Gemini is working!'")
+        
+        return jsonify({
+            "success": True,
+            "model_used": model_name,
+            "gemini_response": response.text,
+            "message": "Gemini API is working correctly!"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
 
 @app.route('/api/debug/users', methods=['GET'])
 def debug_users():
@@ -723,7 +1060,7 @@ if __name__ == '__main__':
     print("   - API: /api/analyze-mood, /api/register, /api/login")
     print("   - Features: Gemini AI Analysis, Charts, Statistics")
     print("")
-    print("🌐 Running on: http://localhost:5000")
+    print("🌐 Running on: http://localhost:5001")
     print("=" * 60)
     print("")
     print("🤖 AI CAPABILITIES:")
@@ -732,4 +1069,4 @@ if __name__ == '__main__':
     print("💾 Database: SQLite with user storage")
     print("=" * 60)
     
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5001)
