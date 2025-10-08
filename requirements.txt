@@ -12,6 +12,7 @@ flask==3.0.0
 flask-cors==4.0.0
 fastapi>=0.104.0
 uvicorn>=0.24.0
+werkzeug==3.0.1
 
 # ==================== AI APIs ====================
 openai>=1.0.0
