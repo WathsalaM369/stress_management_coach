@@ -115,13 +115,16 @@
             margin: 0 0 10px 0;
             color: #667eea;
         }
+
+        /* Use exact same level badge styles from Wathsala's style.css */
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🎯 Smart Activity Recommendations</h1>
+            <h1>🧠 Stress Management Coach</h1>
             <p class="subtitle">AI-powered activities tailored to your stress level</p>
+            <h2>🎯 Smart Activity Recommendations</h2>
             <div class="user-info" id="userInfo">
                 <span id="usernameDisplay"></span>
                 <a href="/" class="btn-logout" style="text-decoration: none;">← Back to Assessment</a>
@@ -293,7 +296,13 @@
         function displayStressLevel() {
             document.getElementById('currentScore').textContent = currentStressScore.toFixed(1);
             document.getElementById('currentLevelBadge').textContent = currentStressLevel;
-            document.getElementById('currentLevelBadge').className = `level-badge ${currentStressLevel.toLowerCase()}`;
+            
+            // Add color class based on stress level
+            const badgeElement = document.getElementById('currentLevelBadge');
+            badgeElement.className = 'level-badge';
+            
+            const levelLower = currentStressLevel.toLowerCase().replace(' ', '-');
+            badgeElement.classList.add(levelLower);
             
             const explanations = {
                 'Low': 'Great! You\'re in a calm state. Let\'s find activities to maintain this peace.',
