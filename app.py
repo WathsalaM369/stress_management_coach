@@ -579,73 +579,37 @@ def test_endpoint():
         "status": "success"
     })
 
-# ==================== ENHANCED MOTIVATION AGENT ROUTES ====================
-
-@flask_app.route('/api/generate-motivation', methods=['POST'])
-def generate_motivation():
-    """Generate motivational message with audio"""
+@flask_app.route('/')
+def serve_frontend():
     try:
-        data = request.get_json()
-        print(f"🎯 Received motivation request: {data}")
-        
-        request_obj = MotivationRequest(
-            stress_level=data['stress_level'],
-            stress_category=data['stress_category'],
-            user_message=data.get('user_message', ''),
-            generate_audio=data.get('generate_audio', True),
-            voice_gender=data.get('voice_gender', 'female')
-        )
-        
-        response = motivational_agent.generate_motivation(request_obj)
-        print(f"✅ Generated motivation: {response.motivational_message[:50]}...")
-        print(f"✅ Audio path: {response.audio_file_path}")
-        
-        return jsonify(response.dict())
+        return send_from_directory('frontend', 'index.html')
     except Exception as e:
-        print(f"❌ Error in generate_motivation: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": "Frontend not found"}), 404
 
-@flask_app.route('/api/play-audio', methods=['POST'])
-def play_audio():
-    """Play the generated audio file"""
+@flask_app.route('/<path:path>')
+def serve_static_files(path):
     try:
-        data = request.get_json()
-        audio_path = data.get('audio_path')
-        print(f"🔊 Play audio request: {audio_path}")
-        
-        if not audio_path:
-            return jsonify({'success': False, 'error': 'No audio path provided'})
-        
-        success = motivational_agent.play_audio(audio_path)
-        
-        if success:
-            return jsonify({'success': True, 'message': 'Audio playback started'})
-        else:
-            return jsonify({'success': False, 'error': 'Audio playback failed'})
-            
+        return send_from_directory('frontend', path)
     except Exception as e:
-        print(f"❌ Error in play_audio: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({"error": "File not found"}), 404
 
-@flask_app.route('/api/stop-audio', methods=['POST'])
-def stop_audio():
-    """Stop audio playback"""
-    try:
-        success = motivational_agent.stop_audio()
-        return jsonify({'success': success})
-    except Exception as e:
-        print(f"❌ Error stopping audio: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+@flask_app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
 
-@flask_app.route('/api/audio-status', methods=['GET'])
-def audio_status():
-    """Get current audio playback status"""
-    try:
-        is_playing = motivational_agent.is_audio_playing()
-        return jsonify({'is_playing': is_playing})
-    except Exception as e:
-        print(f"❌ Error getting audio status: {e}")
-        return jsonify({'is_playing': False, 'error': str(e)})
+@flask_app.errorhandler(404)
+def not_found(error):
+    return jsonify({"error": "Endpoint not found"}), 404
+
+@flask_app.errorhandler(500)
+def internal_error(error):
+    return jsonify({"error": "Internal server error"}), 500
+
+# ==================== MOTIVATION AGENT ROUTES ====================
 
 def generate_motivation_from_stress(stress_result, user_message=""):
     """Generate motivation based on stress analysis result"""
@@ -662,7 +626,7 @@ def generate_motivation_from_stress(stress_result, user_message=""):
     
     return motivation_response
 
-@flask_app.route('/api/generate-motivation-api', methods=['POST'])
+@flask_app.route('/api/generate-motivation', methods=['POST'])
 def generate_motivation_api():
     """Generate motivation from stress level"""
     try:
@@ -698,7 +662,7 @@ def generate_motivation_api():
         print(f"❌ Error generating motivation: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@flask_app.route('/api/play-audio-api', methods=['POST'])
+@flask_app.route('/api/play-audio', methods=['POST'])
 def play_audio_api():
     """Play generated audio"""
     try:
@@ -778,36 +742,6 @@ def analyze_mood_with_motivation():
         print(f"❌ Error in mood analysis with motivation: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@flask_app.route('/')
-def serve_frontend():
-    try:
-        return send_from_directory('frontend', 'index.html')
-    except Exception as e:
-        return jsonify({"error": "Frontend not found"}), 404
-
-@flask_app.route('/<path:path>')
-def serve_static_files(path):
-    try:
-        return send_from_directory('frontend', path)
-    except Exception as e:
-        return jsonify({"error": "File not found"}), 404
-
-@flask_app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
-
-@flask_app.errorhandler(404)
-def not_found(error):
-    return jsonify({"error": "Endpoint not found"}), 404
-
-@flask_app.errorhandler(500)
-def internal_error(error):
-    return jsonify({"error": "Internal server error"}), 500
-
 # ==================== RUN APPLICATIONS ====================
 
 def run_fastapi():
@@ -836,8 +770,6 @@ def run_flask():
     print("🎵 MOTIVATION ENDPOINTS:")
     print("   POST /api/generate-motivation")
     print("   POST /api/play-audio")
-    print("   POST /api/stop-audio")
-    print("   GET  /api/audio-status")
     print("   POST /api/analyze-with-motivation")
     print("   POST /api/analyze-mood-with-motivation")
     print("")
@@ -849,4 +781,4 @@ def run_flask():
 if __name__ == '__main__':
     # You can choose which one to run, or run both in different processes
     run_flask()  # Running Flask version by default
-    #run_fastapi()  # Uncomment to run FastAPI version instead
+    # run_fastapi()  # Uncomment to run FastAPI version instead
