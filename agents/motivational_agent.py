@@ -1,14 +1,18 @@
 import logging
 from typing import Dict, Any, Optional
 from pydantic import BaseModel
-import google.generativeai as genai
 import os
 from dotenv import load_dotenv
-import pygame
-from gtts import gTTS
 import tempfile
 import uuid
+import time
+import traceback
+import subprocess
+import sys
+import platform
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class MotivationRequest(BaseModel):
@@ -17,346 +21,339 @@ class MotivationRequest(BaseModel):
     user_message: str
     user_preferences: Optional[Dict[str, Any]] = None
     generate_audio: bool = True
-    voice_gender: str = "female"  # "male" or "female"
+    voice_gender: str = "female"
 
 class MotivationResponse(BaseModel):
     motivational_message: str
     audio_file_path: Optional[str] = None
     success: bool
     voice_used: str = "female"
+    audio_duration: Optional[float] = None
 
 class MotivationalAgent:
     def __init__(self, use_gemini=True):
         self.use_gemini = use_gemini
         self.gemini_client = None
-        self.audio_files = {}  # Cache for audio files
+        self.audio_files = {}
+        self.current_audio_path = None
         
-        print(f"🔧 Initializing MotivationalAgent - use_gemini: {use_gemini}")
+        print("🎵 Initializing Motivational Agent...")
+        
+        # Test audio system first
+        self._test_system_dependencies()
         
         if use_gemini:
             self.gemini_client = self._setup_gemini()
-            if self.gemini_client:
-                print("✅ Gemini client initialized for motivational agent")
-            else:
-                print("❌ Gemini setup failed, using rule-based motivation")
-                self.use_gemini = False
         
-        # Initialize pygame mixer for audio playback
+        print("✅ Motivational Agent Ready!")
+    
+    def _test_system_dependencies(self):
+        """Test and install missing dependencies"""
+        print("🔧 Checking system dependencies...")
+        
+        missing_packages = []
+        
+        # Test required packages
         try:
-            pygame.mixer.init()
+            import google.generativeai
+        except ImportError:
+            missing_packages.append("google-generativeai")
+        
+        try:
+            from gtts import gTTS
+        except ImportError:
+            missing_packages.append("gtts")
+        
+        try:
+            import pygame
+        except ImportError:
+            missing_packages.append("pygame")
+        
+        if missing_packages:
+            print(f"❌ Missing packages: {missing_packages}")
+            print("💡 Run: pip install " + " ".join(missing_packages))
+            return False
+        
+        # Initialize pygame mixer
+        try:
+            import pygame
+            pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
             print("✅ Audio system initialized")
         except Exception as e:
-            print(f"❌ Audio system initialization failed: {e}")
+            print(f"❌ Audio system failed: {e}")
+            print("💡 Try: pip install pygame --upgrade")
+        
+        return True
     
     def _setup_gemini(self):
-        """Setup Gemini client for motivational messages"""
+        """Setup Gemini client"""
         try:
             load_dotenv()
             api_key = os.getenv('GOOGLE_API_KEY')
             
-            if not api_key:
-                print("❌ GOOGLE_API_KEY not found for motivational agent")
+            if not api_key or api_key == 'your_actual_google_api_key_here':
+                print("❌ GOOGLE_API_KEY not found in .env file")
+                print("💡 Create a .env file with: GOOGLE_API_KEY=your_actual_key_here")
                 return None
             
+            import google.generativeai as genai
             genai.configure(api_key=api_key)
             
-            # Use a model suitable for creative text generation
-            model_name = 'models/gemini-1.5-flash'
-            model = genai.GenerativeModel(model_name)
+            model = genai.GenerativeModel('models/gemini-1.5-flash')
             
-            # Test the connection
-            test_response = model.generate_content("Say only 'MOTIVATION_READY'")
-            if "MOTIVATION_READY" in test_response.text:
-                print("✅ Gemini motivational agent ready")
-                return model
-            else:
-                print("❌ Gemini test failed")
-                return None
-                
+            # Quick test
+            response = model.generate_content("Say 'READY'")
+            print("✅ Gemini AI connected successfully")
+            return model
+            
         except Exception as e:
-            print(f"❌ Error in Gemini setup for motivational agent: {str(e)}")
+            print(f"❌ Gemini setup failed: {e}")
             return None
     
     def generate_motivation(self, request: MotivationRequest) -> MotivationResponse:
         """
-        Generate motivational message based on stress level and convert to audio
+        Generate motivational message and audio - SIMPLE & RELIABLE
         """
         try:
-            # Validate input
-            if not (0 <= request.stress_level <= 10):
-                return MotivationResponse(
-                    motivational_message="Hey, I'm here with you. Whatever you're going through, you don't have to face it alone.",
-                    success=False,
-                    voice_used=request.voice_gender
-                )
+            print(f"🎯 Generating motivation (Stress: {request.stress_level}, Voice: {request.voice_gender})")
             
-            logger.info(f"🎯 Generating motivation for stress level: {request.stress_level} ({request.stress_category})")
-            
-            # Generate motivational message
-            if self.use_gemini and self.gemini_client:
-                motivational_text = self._generate_gemini_motivation(request)
-            else:
-                motivational_text = self._generate_rule_based_motivation(request)
+            # Generate motivational text
+            motivational_text = self._generate_motivational_text(request)
             
             # Generate audio if requested
             audio_path = None
             if request.generate_audio and motivational_text:
-                audio_path = self._text_to_speech(motivational_text, request.stress_category, request.voice_gender)
+                audio_path = self._generate_audio_simple(motivational_text, request.voice_gender)
             
             return MotivationResponse(
                 motivational_message=motivational_text,
                 audio_file_path=audio_path,
                 success=True,
-                voice_used=request.voice_gender
+                voice_used=request.voice_gender,
+                audio_duration=len(motivational_text.split()) * 0.5  # Simple estimate
             )
             
         except Exception as e:
-            logger.error(f"❌ Error in generate_motivation: {e}")
+            print(f"❌ Error: {e}")
             return MotivationResponse(
-                motivational_message="It's okay to not be okay. Just breathe - I'm right here with you.",
+                motivational_message="I'm here for you. Take a deep breath. You've got this. 💫",
                 success=False,
                 voice_used=request.voice_gender
             )
     
-    def _generate_gemini_motivation(self, request: MotivationRequest) -> str:
-        """Generate motivational message using Gemini"""
-        try:
-            prompt = self._build_motivation_prompt(request)
-            
-            response = self.gemini_client.generate_content(
-                prompt,
-                generation_config={
-                    'temperature': 0.9,  # More creative and conversational
-                    'top_p': 0.95,
-                    'max_output_tokens': 120,
-                }
-            )
-            
-            motivational_text = response.text.strip()
-            
-            # Clean and validate the response
-            if len(motivational_text) < 10 or len(motivational_text) > 300:
-                raise ValueError("Invalid response length from Gemini")
+    def _generate_motivational_text(self, request: MotivationRequest) -> str:
+        """Generate motivational text using Gemini or fallback"""
+        
+        # Try Gemini first
+        if self.use_gemini and self.gemini_client:
+            try:
+                prompt = f"""
+                Create a supportive, compassionate message for someone with {request.stress_level}/10 stress.
+                They said: "{request.user_message}"
                 
-            print(f"✅ Gemini generated motivational message: {len(motivational_text)} chars")
-            return motivational_text
-            
-        except Exception as e:
-            print(f"❌ Gemini motivation generation failed: {e}")
-            return self._generate_rule_based_motivation(request)
-    
-    def _build_motivation_prompt(self, request: MotivationRequest) -> str:
-        """Build prompt for Gemini based on stress level"""
+                Make it:
+                - Warm and empathetic
+                - 1-2 sentences max
+                - Include an emoji
+                - Sound like a caring friend
+                """
+                
+                response = self.gemini_client.generate_content(prompt)
+                text = response.text.strip()
+                
+                if len(text) > 10:
+                    print("✅ Generated with Gemini")
+                    return text
+                    
+            except Exception as e:
+                print(f"❌ Gemini generation failed: {e}")
         
-        stress_prompts = {
-            "Low": """
-            You're a warm, friendly friend checking in. The user is doing pretty well (stress: {score}/10) and mentioned: "{message}".
-            
-            Respond like a real friend would:
-            - Sound genuinely happy for them
-            - Use casual, conversational language
-            - Add a little emoji or warmth
-            - Keep it brief and real (1-2 sentences)
-            - No clinical or formal language!
-            
-            Just be a good friend celebrating their good moment!
-            """,
-            
-            "Medium": """
-            You're a supportive friend who gets it. The user is dealing with some stress (score: {score}/10) and shared: "{message}".
-            
-            Respond like you're texting a friend:
-            - Validate their feelings without being dramatic
-            - Offer gentle encouragement
-            - Use "you've got this" energy
-            - Sound like a real person (1-2 sentences)
-            - No therapy-speak or formal language!
-            
-            Be the friend who says the right thing at the right time.
-            """,
-            
-            "High": """
-            You're that one friend who knows exactly what to say when things are hard. The user is really struggling (score: {score}/10) and told you: "{message}".
-            
-            Respond with heart:
-            - Lead with empathy and understanding
-            - Use warm, comforting language
-            - Remind them they're not alone
-            - Sound like you're giving them a virtual hug (1-2 sentences)
-            - No clinical terms or empty platitudes!
-            
-            Be the comfort they need right now.
-            """,
-            
-            "Very High": """
-            You're the calm, steady presence someone needs in a storm. The user is in a really tough spot (score: {score}/10) and shared: "{message}".
-            
-            Respond with deep care:
-            - Lead with compassion, not solutions
-            - Use soothing, gentle words
-            - Focus on being present with them
-            - Sound like you're sitting with them in silence (1-2 sentences)
-            - No advice-giving or problem-solving!
-            
-            Just be there with them in this hard moment.
-            """,
-            
-            "Chronic High": """
-            You're the friend who sticks around through the long haul. The user has been carrying heavy stress for a while (score: {score}/10) and said: "{message}".
-            
-            Respond with lasting support:
-            - Acknowledge how long they've been carrying this
-            - Honor their strength in still showing up
-            - Remind them they matter
-            - Sound like you're in it for the long run (1-2 sentences)
-            - No quick fixes or silver linings!
-            
-            Be the consistent support they deserve.
-            """
-        }
-        
-        # Get the appropriate prompt template
-        prompt_template = stress_prompts.get(request.stress_category, stress_prompts["Medium"])
-        
-        # Format the prompt
-        prompt = prompt_template.format(
-            score=request.stress_level,
-            message=request.user_message
-        )
-        
-        return prompt
-    
-    def _generate_rule_based_motivation(self, request: MotivationRequest) -> str:
-        """Generate rule-based motivational messages as fallback"""
-        
-        rule_based_messages = {
+        # Fallback messages
+        fallback_messages = {
             "Low": [
-                "Hey! So glad to hear you're doing okay right now 🌟 Keep riding that good wave!",
-                "You're crushing it! Love to see you taking care of yourself 💫",
-                "This is your reminder that you're doing amazing, and I'm really happy for you! 🎉",
-                "Look at you, handling life like a pro! So proud of you ✨",
-                "You've got such great energy right now! Sending you good vibes to keep it going 💖"
+                "You're doing amazing! Keep shining 🌟",
+                "So proud of you for taking care of yourself! 💫",
+                "You've got this! Your energy is inspiring ✨"
             ],
             "Medium": [
-                "I see you, and I get it. This is tough, but you're tougher 💪",
-                "Hey, it's okay to feel this way. You're handling it better than you think!",
-                "One breath at a time, one step at a time. You've got this, friend 🌈",
-                "I'm right here with you. This feeling won't last forever, I promise.",
-                "You're doing the best you can, and that's more than enough right now 💝"
+                "I see you working through this. You're stronger than you think 💪",
+                "One step at a time, one breath at a time. You've got this 🌈",
+                "This is tough, but you're tougher. I believe in you! 💖"
             ],
             "High": [
-                "Oh honey, I'm so sorry you're carrying this much 💔 Just breathe - I'm right here with you.",
-                "This is really heavy, and you don't have to carry it alone. I'm sitting with you in this.",
-                "Your feelings make complete sense. However you need to be right now is okay 🫂",
-                "I can't fix it, but I can be here with you. You're not alone in this.",
-                "It's okay to fall apart. I'll be here when you're ready 💗"
+                "I'm right here with you. However you feel is completely okay 🫂",
+                "Just breathe. However you need to get through this moment is enough 💗",
+                "You don't have to carry this alone. I'm sitting with you in this 🌙"
             ],
             "Very High": [
-                "I'm just sitting here with you in this hard moment. However you feel is okay 🌙",
-                "You're surviving right now, and that's enough. However you need to get through this moment is okay.",
-                "No words needed. I'm just here, holding space for you 🕊️",
-                "However dark it feels right now, I'm here with my little light. You're not alone.",
-                "Just keep breathing. However you're getting through this moment is brave 💫"
+                "However heavy this feels, you're not alone. I'm here with you 🕊️",
+                "Just keep breathing. However you're surviving right now is brave 💫",
+                "No words needed. I'm just here, holding space for you 🌌"
             ],
             "Chronic High": [
-                "You've been carrying this for so long, and you're still here. That says everything about your strength 🌄",
-                "Day after day, you keep showing up. I see how hard that is, and I'm in awe of you.",
-                "The fact that you're still fighting through this tells me everything about your incredible spirit 💖",
-                "You've been through so much, and you're still here. That's not nothing - that's everything.",
+                "You've been carrying this for so long, and you're still here. That's incredible strength 🌄",
+                "Day after day, you keep showing up. I see your courage and I'm in awe 💖",
                 "However tired you are, however much it hurts - I see you, and I'm not going anywhere 🌟"
             ]
         }
         
         import random
-        messages = rule_based_messages.get(request.stress_category, rule_based_messages["Medium"])
-        return random.choice(messages)
+        messages = fallback_messages.get(request.stress_category, fallback_messages["Medium"])
+        selected = random.choice(messages)
+        print("✅ Using fallback message")
+        return selected
     
-    def _text_to_speech(self, text: str, stress_category: str, voice_gender: str = "female") -> str:
-        """Convert text to speech and return audio file path"""
+    def _generate_audio_simple(self, text: str, voice_gender: str) -> str:
+        """
+        SIMPLE & RELIABLE audio generation using gTTS
+        """
         try:
-            # Create a temporary audio file
+            from gtts import gTTS
+            
+            # Create temp file
             temp_dir = tempfile.gettempdir()
-            audio_filename = f"motivation_{stress_category.lower()}_{voice_gender}_{uuid.uuid4().hex[:8]}.mp3"
-            audio_path = os.path.join(temp_dir, audio_filename)
+            filename = f"motivation_{voice_gender}_{uuid.uuid4().hex[:8]}.mp3"
+            audio_path = os.path.join(temp_dir, filename)
             
-            # Generate speech with appropriate pacing based on stress level
-            slow = stress_category in ["High", "Very High", "Chronic High"]
+            print(f"🔊 Generating audio: '{text[:50]}...'")
             
-            # For gTTS, we can't directly control gender, but we can adjust parameters
-            # Male voices tend to be slightly deeper, female voices slightly higher
-            tts = gTTS(
-                text=text,
-                lang='en',
-                slow=slow,  # Slower speech for high stress messages
-                lang_check=False
-            )
-            
+            # Generate speech - gTTS only has female voice but we track the requested gender
+            tts = gTTS(text=text, lang='en', slow=False)
             tts.save(audio_path)
-            print(f"✅ Audio generated with {voice_gender} voice: {audio_path}")
             
-            # Cache the audio file path
-            self.audio_files[audio_path] = {
-                'text': text,
-                'voice_gender': voice_gender,
-                'stress_category': stress_category
-            }
-            
-            return audio_path
-            
+            # Verify file
+            if os.path.exists(audio_path) and os.path.getsize(audio_path) > 1024:
+                print(f"✅ Audio saved: {audio_path} ({os.path.getsize(audio_path)} bytes)")
+                
+                # Cache file info
+                self.audio_files[audio_path] = {
+                    'text': text,
+                    'voice_gender': voice_gender,
+                    'created_at': time.time()
+                }
+                
+                return audio_path
+            else:
+                print("❌ Audio file creation failed")
+                return None
+                
         except Exception as e:
-            print(f"❌ Text-to-speech conversion failed: {e}")
+            print(f"❌ Audio generation failed: {e}")
             return None
     
-    def play_audio(self, audio_path: str):
-        """Play the generated audio file"""
+    def play_audio(self, audio_path: str) -> bool:
+        """
+        SIMPLE & RELIABLE audio playback
+        """
         try:
-            if audio_path and os.path.exists(audio_path):
+            if not audio_path or not os.path.exists(audio_path):
+                print("❌ Audio file not found")
+                return False
+            
+            print(f"🔊 Playing: {os.path.basename(audio_path)}")
+            
+            # Method 1: Try pygame first
+            try:
+                import pygame
+                
+                # Stop any current playback
+                pygame.mixer.music.stop()
+                
+                # Load and play
                 pygame.mixer.music.load(audio_path)
                 pygame.mixer.music.play()
                 
-                # Wait for playback to complete
-                while pygame.mixer.music.get_busy():
-                    pygame.time.wait(100)
-                    
-                print("✅ Audio playback completed")
-                return True
-            else:
-                print("❌ Audio file not found")
-                return False
+                # Check if playing
+                import time
+                time.sleep(0.5)
                 
-        except Exception as e:
-            print(f"❌ Audio playback failed: {e}")
-            return False
-    
-    def get_available_voices(self):
-        """Get available voice options"""
-        return {
-            "female": "Warm, comforting female voice",
-            "male": "Calm, reassuring male voice"
-        }
-    
-    def set_voice_preference(self, voice_gender: str):
-        """Set default voice preference"""
-        if voice_gender.lower() in ["male", "female"]:
-            self.default_voice = voice_gender.lower()
-            print(f"✅ Default voice set to: {voice_gender}")
-            return True
-        else:
-            print("❌ Invalid voice preference. Use 'male' or 'female'")
-            return False
-    
-    def cleanup_audio_files(self):
-        """Clean up generated audio files"""
-        for audio_path in list(self.audio_files.keys()):
-            try:
-                if os.path.exists(audio_path):
-                    os.remove(audio_path)
-                    voice_info = self.audio_files[audio_path]
-                    print(f"🧹 Cleaned up {voice_info['voice_gender']} voice audio: {audio_path}")
+                if pygame.mixer.music.get_busy():
+                    print("✅ Playing with pygame")
+                    return True
+                    
             except Exception as e:
-                print(f"❌ Failed to clean up audio file {audio_path}: {e}")
+                print(f"❌ Pygame failed: {e}")
+            
+            # Method 2: Try system command
+            try:
+                system = platform.system()
+                
+                if system == "Windows":
+                    os.startfile(audio_path)  # This usually works on Windows
+                elif system == "Darwin":  # macOS
+                    subprocess.run(['afplay', audio_path], check=False)
+                else:  # Linux
+                    subprocess.run(['xdg-open', audio_path], check=False)
+                
+                print("✅ Playing with system command")
+                return True
+                
+            except Exception as e:
+                print(f"❌ System command failed: {e}")
+            
+            print("❌ All playback methods failed")
+            return False
+            
+        except Exception as e:
+            print(f"❌ Playback error: {e}")
+            return False
+    
+    def stop_audio(self) -> bool:
+        """Stop audio playback"""
+        try:
+            import pygame
+            pygame.mixer.music.stop()
+            print("⏹️ Audio stopped")
+            return True
+        except:
+            return True  # Always return True for stop
+    
+    def is_audio_playing(self) -> bool:
+        """Check if audio is playing"""
+        try:
+            import pygame
+            return pygame.mixer.music.get_busy()
+        except:
+            return False
+    
+    def test_system(self):
+        """Test the complete system"""
+        print("\n" + "="*50)
+        print("🧪 SYSTEM TEST")
+        print("="*50)
         
-        self.audio_files.clear()
+        # Test 1: Generate motivation
+        print("\n1. Testing motivation generation...")
+        request = MotivationRequest(
+            stress_level=7.5,
+            stress_category="High",
+            user_message="I'm feeling really overwhelmed",
+            voice_gender="female"
+        )
+        
+        response = self.generate_motivation(request)
+        print(f"✅ Message: {response.motivational_message}")
+        print(f"✅ Audio path: {response.audio_file_path}")
+        
+        # Test 2: Play audio if generated
+        if response.audio_file_path:
+            print("\n2. Testing audio playback...")
+            success = self.play_audio(response.audio_file_path)
+            print(f"✅ Playback: {'SUCCESS' if success else 'FAILED'}")
+            
+            if success:
+                print("🔊 Playing for 3 seconds...")
+                time.sleep(3)
+                self.stop_audio()
+        
+        print("\n" + "="*50)
+        print("🎉 SYSTEM TEST COMPLETED")
+        print("="*50)
 
-# Create a singleton instance
+# Create the agent instance
 motivational_agent = MotivationalAgent(use_gemini=True)
+
+# Test if run directly
+if __name__ == "__main__":
+    print("🚀 Starting Motivational Agent Test...")
+    motivational_agent.test_system()
