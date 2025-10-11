@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adaptive Task Scheduler - MindSoothe</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 { color: #667eea; margin-bottom: 30px; text-align: center; font-size: 2.5em; }
+        .section-title { font-size: 1.5em; color: #333; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 3px solid #667eea; }
+        
+        .setup-section { margin-bottom: 30px; }
+        
+        .routine-setup { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .day-routine { background: #f8f9ff; padding: 20px; border-radius: 10px; border: 2px solid #e0e7ff; }
+        .day-routine h3 { color: #667eea; margin-bottom: 15px; }
+        
+        .time-slot { display: flex; align-items: center; margin-bottom: 10px; gap: 10px; }
+        .time-slot input[type="time"], .time-slot select { padding: 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
+        
+        .add-slot-btn, .generate-btn, .add-task-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .add-slot-btn:hover, .generate-btn:hover, .add-task-btn:hover { background: #5568d3; }
+        
+        .generate-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: block;
+            margin: 30px auto;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .stress-assessment-section {
+            background: #f0f4ff;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            border: 2px solid #667eea;
+        }
+        
+        .stress-assessment-section h3 { color: #667eea; margin-bottom: 15px; font-size: 1.5em; }
+        .stress-assessment-section textarea {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 14px;
+            resize: vertical;
+            font-family: inherit;
+        }
+        
+        #stressResults { display: none; margin-top: 20px; animation: slideIn 0.5s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .task-input-section { background: #f0f4ff; padding: 25px; border-radius: 10px; margin-bottom: 30px; }
+        .task-form { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        .task-form input, .task-form select { padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 14px; }
+        
+        .tasks-list { margin-top: 20px; }
+        .task-item { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #667eea; }
+        .task-item.high { border-left-color: #ef4444; }
+        .task-item.medium { border-left-color: #f59e0b; }
+        .task-item.low { border-left-color: #10b981; }
+        
+        .remove-task { background: #ef4444; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
+        
+        .calendar-view { display: grid; grid-template-columns: repeat(7, 1fr); gap: 15px; margin-top: 30px; }
+        .day-column { background: #f8f9ff; border-radius: 10px; padding: 15px; min-height: 500px; }
+        .day-header { font-weight: bold; color: #667eea; padding: 10px; background: white; border-radius: 8px; text-align: center; margin-bottom: 15px; }
+        
+        .schedule-slot { background: white; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid #667eea; font-size: 13px; }
+        .schedule-slot.work { border-left-color: #3b82f6; }
+        .schedule-slot.break { border-left-color: #10b981; }
+        .schedule-slot.hobby { border-left-color: #f59e0b; }
+        
+        .slot-controls { display: flex; gap: 5px; margin-top: 8px; }
+        .slot-btn { background: #667eea; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .slot-btn.danger { background: #ef4444; }
+        
+        .loading { text-align: center; padding: 40px; font-size: 18px; color: #667eea; display: none; }
+        
+        .back-btn { background: #6c757d; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-bottom: 20px; }
+        .back-btn:hover { background: #5a6268; }
+        
+        .adjust-routine-btn { background: #f59e0b; }
+        .adjust-routine-btn:hover { background: #d97706; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button class="back-btn" onclick="window.location.href='/'">← Back to Home</button>
+        
+        <h1>🗓️ Adaptive Task Scheduler</h1>
+
+        <!-- Step 1: Weekly Routine Setup (shown only if no routine exists) -->
+        <div class="setup-section" id="routineSection" style="display: {% if not has_routine %}block{% else %}none{% endif %};">
+            <div class="section-title">Step 1: Set Your Weekly Routine</div>
+            <div class="routine-setup" id="routineSetup"></div>
+            <button class="generate-btn" onclick="saveRoutine()">Save Routine & Continue</button>
+        </div>
+
+        <!-- Step 2: Stress Assessment & Task Input -->
+        <div class="setup-section" id="taskSection" style="display: {% if has_routine %}block{% else %}none{% endif %};">
+            <div class="section-title">Step 2: Stress Assessment & Task Management</div>
+            
+            <!-- Button to adjust routine if user already has one -->
+            {% if has_routine %}
+            <div style="margin-bottom: 20px;">
+                <button class="add-slot-btn adjust-routine-btn" onclick="showRoutineEditor()">
+                    ⚙️ Adjust My Weekly Routine
+                </button>
+            </div>
+            {% endif %}
+            
+            <!-- Fetch Stress from Stress Estimator Agent -->
+            <div class="stress-assessment-section">
+                <h3>📊 Get Your Current Stress Level</h3>
+                <p style="color: #666; margin-bottom: 20px;">
+                    Describe how you're feeling, and we'll fetch your stress assessment from the Stress Estimator.
+                </p>
+                <textarea 
+                    id="stressInput" 
+                    placeholder="Tell us how you're feeling... (e.g., 'I have three deadlines this week and haven't been sleeping well. Feeling overwhelmed with work.')"
+                    rows="4"
+                ></textarea>
+                <button class="add-task-btn" onclick="fetchStressLevel()" style="margin-top: 15px;">
+                    🔍 Get Stress Assessment
+                </button>
+                
+                <div id="stressResults">
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 12px;">
+                        <h4 style="margin-bottom: 15px;">✅ Stress Assessment Retrieved</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                            <div>
+                                <div style="font-size: 14px; opacity: 0.9;">Stress Score</div>
+                                <div id="stressScoreDisplay" style="font-size: 3em; font-weight: bold;">-</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 14px; opacity: 0.9;">Level</div>
+                                <div id="stressLevelDisplay" style="font-size: 1.5em; font-weight: bold; margin-top: 10px;">-</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 14px; opacity: 0.9;">Mood</div>
+                                <div id="moodDisplay" style="font-size: 1.5em; font-weight: bold; margin-top: 10px;">-</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.2); border-radius: 8px;">
+                            <div style="font-size: 13px;" id="stressAnalysis"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Task Input Section -->
+            <div class="task-input-section" style="margin-top: 30px;">
+                <h3 style="margin-bottom: 20px;">📝 Add Your Tasks</h3>
+                <div class="task-form">
+                    <input type="text" id="taskName" placeholder="Task Name" required>
+                    <input type="number" id="taskDuration" placeholder="Duration (hours)" min="0.5" step="0.5" required>
+                    <select id="taskPriority">
+                        <option value="high">High Priority</option>
+                        <option value="medium">Medium Priority</option>
+                        <option value="low">Low Priority</option>
+                    </select>
+                    <input type="date" id="taskDeadline" placeholder="Deadline">
+                </div>
+                <button class="add-task-btn" onclick="addTask()">➕ Add Task</button>
+                <div class="tasks-list" id="tasksList"></div>
+            </div>
+            
+            <button class="generate-btn" onclick="generateSchedule()">🚀 Generate Smart Schedule</button>
+        </div>
+
+        <!-- Step 3: Generated Schedule -->
+        <div class="setup-section" id="scheduleSection" style="display: none;">
+            <div class="section-title">Your Optimized Schedule</div>
+            
+            <div id="warningsContainer"></div>
+            <div id="suggestionsContainer"></div>
+            <div id="workloadContainer"></div>
+            
+            <div class="calendar-view" id="calendarView"></div>
+            
+            <button class="generate-btn" onclick="backToTasks()">← Back to Edit Tasks</button>
+        </div>
+
+        <div id="loading" class="loading">
+            Generating your personalized schedule... 🤖
+        </div>
+    </div>
+
+    <script>
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        let tasks = [];
+        let weeklyRoutine = {};
+        let stressData = null;
+        const hasExistingRoutine = {{ 'true' if has_routine else 'false' }};
+
+        // Initialize routine setup
+        function initRoutineSetup() {
+            const container = document.getElementById('routineSetup');
+            days.forEach(day => {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'day-routine';
+                dayDiv.innerHTML = `
+                    <h3>${day}</h3>
+                    <div id="${day}-slots">
+                        <div class="time-slot">
+                            <input type="time" value="09:00">
+                            <span>-</span>
+                            <input type="time" value="17:00">
+                            <select>
+                                <option value="work">Work</option>
+                                <option value="hobby">Hobby</option>
+                                <option value="leisure">Leisure</option>
+                                <option value="exercise">Exercise</option>
+                                <option value="sleep">Sleep</option>
+                                <option value="blocked">Blocked/Unavailable</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="add-slot-btn" onclick="addTimeSlot('${day}')">+ Add Slot</button>
+                `;
+                container.appendChild(dayDiv);
+            });
+        }
+
+        function addTimeSlot(day) {
+            const slotsDiv = document.getElementById(`${day}-slots`);
+            const slotDiv = document.createElement('div');
+            slotDiv.className = 'time-slot';
+            slotDiv.innerHTML = `
+                <input type="time" value="09:00">
+                <span>-</span>
+                <input type="time" value="17:00">
+                <select>
+                    <option value="work">Work</option>
+                    <option value="hobby">Hobby</option>
+                    <option value="leisure">Leisure</option>
+                    <option value="exercise">Exercise</option>
+                    <option value="sleep">Sleep</option>
+                    <option value="blocked">Blocked/Unavailable</option>
+                </select>
+            `;
+            slotsDiv.appendChild(slotDiv);
+        }
+
+        function saveRoutine() {
+            weeklyRoutine = {};
+            days.forEach(day => {
+                const slots = document.querySelectorAll(`#${day}-slots .time-slot`);
+                weeklyRoutine[day] = [];
+                slots.forEach(slot => {
+                    const inputs = slot.querySelectorAll('input[type="time"]');
+                    const select = slot.querySelector('select');
+                    weeklyRoutine[day].push({
+                        start: inputs[0].value,
+                        end: inputs[1].value,
+                        type: select.value
+                    });
+                });
+            });
+
+            fetch('/api/scheduler/save-routine', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ routine: weeklyRoutine })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('routineSection').style.display = 'none';
+                    document.getElementById('taskSection').style.display = 'block';
+                    alert('✅ ' + data.message);
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(err => alert('Error saving routine: ' + err));
+        }
+
+        function showRoutineEditor() {
+            // Load existing routine and show editor
+            fetch('/api/scheduler/get-routine')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Populate routine editor with existing data
+                        weeklyRoutine = data.routine.weekly_routine;
+                        populateRoutineEditor(weeklyRoutine);
+                        document.getElementById('taskSection').style.display = 'none';
+                        document.getElementById('routineSection').style.display = 'block';
+                    }
+                })
+                .catch(err => {
+                    alert('Error loading routine: ' + err);
+                });
+        }
+
+        function populateRoutineEditor(routine) {
+            days.forEach(day => {
+                const container = document.getElementById(`${day}-slots`);
+                container.innerHTML = '';
+                
+                if (routine[day]) {
+                    routine[day].forEach(slot => {
+                        const slotDiv = document.createElement('div');
+                        slotDiv.className = 'time-slot';
+                        slotDiv.innerHTML = `
+                            <input type="time" value="${slot.start}">
+                            <span>-</span>
+                            <input type="time" value="${slot.end}">
+                            <select>
+                                <option value="work" ${slot.type === 'work' ? 'selected' : ''}>Work</option>
+                                <option value="hobby" ${slot.type === 'hobby' ? 'selected' : ''}>Hobby</option>
+                                <option value="leisure" ${slot.type === 'leisure' ? 'selected' : ''}>Leisure</option>
+                                <option value="exercise" ${slot.type === 'exercise' ? 'selected' : ''}>Exercise</option>
+                                <option value="sleep" ${slot.type === 'sleep' ? 'selected' : ''}>Sleep</option>
+                                <option value="blocked" ${slot.type === 'blocked' ? 'selected' : ''}>Blocked/Unavailable</option>
+                            </select>
+                        `;
+                        container.appendChild(slotDiv);
+                    });
+                }
+            });
+        }
+
+        async function fetchStressLevel() {
+            const userDescription = document.getElementById('stressInput').value.trim();
+            
+            if (!userDescription || userDescription.length < 20) {
+                alert('Please provide a detailed description of how you\'re feeling (at least 20 characters)');
+                return;
+            }
+
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '🔄 Fetching from Stress Estimator...';
+            button.disabled = true;
+
+            try {
+                const response = await fetch('/api/scheduler/fetch-stress', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_description: userDescription })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    stressData = data.stress_data;
+                    displayStressResults(stressData);
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                alert('Error fetching stress data: ' + error.message);
+            } finally {
+                button.textContent = originalText;
+                button.disabled = false;
+            }
+        }
+
+        function displayStressResults(data) {
+            document.getElementById('stressResults').style.display = 'block';
+            document.getElementById('stressScoreDisplay').textContent = data.stress_score + '/10';
+            document.getElementById('stressLevelDisplay').textContent = data.stress_level;
+            document.getElementById('moodDisplay').textContent = data.mood.charAt(0).toUpperCase() + data.mood.slice(1);
+            
+            const analysisText = data.detailed_analysis || 'Stress assessment completed.';
+            document.getElementById('stressAnalysis').textContent = analysisText;
+
+            document.getElementById('stressResults').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function addTask() {
+            const name = document.getElementById('taskName').value;
+            const duration = document.getElementById('taskDuration').value;
+            const priority = document.getElementById('taskPriority').value;
+            const deadline = document.getElementById('taskDeadline').value;
+
+            if (!name || !duration) {
+                alert('Please fill in task name and duration');
+                return;
+            }
+
+            const task = {
+                id: Date.now(),
+                name,
+                duration: parseFloat(duration),
+                priority,
+                deadline: deadline || null
+            };
+
+            tasks.push(task);
+            displayTasks();
+
+            document.getElementById('taskName').value = '';
+            document.getElementById('taskDuration').value = '';
+            document.getElementById('taskDeadline').value = '';
+        }
+
+        function displayTasks() {
+            const container = document.getElementById('tasksList');
+            container.innerHTML = tasks.map(task => `
+                <div class="task-item ${task.priority}">
+                    <div class="task-info">
+                        <div class="task-name">${task.name}</div>
+                        <div class="task-details">
+                            ${task.duration} hours • ${task.priority} priority
+                            ${task.deadline ? ` • Due: ${task.deadline}` : ''}
+                        </div>
+                    </div>
+                    <button class="remove-task" onclick="removeTask(${task.id})">Remove</button>
+                </div>
+            `).join('');
+        }
+
+        function removeTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            displayTasks();
+        }
+
+        async function generateSchedule() {
+            if (tasks.length === 0) {
+                alert('Please add at least one task');
+                return;
+            }
+
+            if (!stressData) {
+                alert('Please get your stress assessment first');
+                document.getElementById('stressInput').focus();
+                return;
+            }
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('taskSection').style.display = 'none';
+
+            const today = new Date();
+            const weekStart = new Date(today.setDate(today.getDate() - today.getDay() + 1));
+
+            try {
+                const response = await fetch('/api/scheduler/generate-schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tasks,
+                        week_start: weekStart.toISOString().split('T')[0],
+                        stress_score: stressData.stress_score,
+                        stress_level: stressData.stress_level,
+                        mood: stressData.mood
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    displaySchedule(data.schedule);
+                } else {
+                    alert('Error generating schedule: ' + data.message);
+                    document.getElementById('taskSection').style.display = 'block';
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+                document.getElementById('taskSection').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function displaySchedule(scheduleData) {
+            document.getElementById('scheduleSection').style.display = 'block';
+
+            if (scheduleData.warnings && scheduleData.warnings.length > 0) {
+                document.getElementById('warningsContainer').innerHTML = `
+                    <div style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 10px; padding: 20px; margin: 20px 0;">
+                        <h3 style="color: #d97706; margin-bottom: 10px;">⚠️ Scheduling Warnings</h3>
+                        ${scheduleData.warnings.map(w => `<div style="padding: 8px; margin: 5px 0; color: #92400e;">• ${w}</div>`).join('')}
+                    </div>
+                `;
+            }
+
+            if (scheduleData.suggestions && scheduleData.suggestions.length > 0) {
+                document.getElementById('suggestionsContainer').innerHTML = `
+                    <div style="background: #dbeafe; border: 2px solid #3b82f6; border-radius: 10px; padding: 20px; margin: 20px 0;">
+                        <h3 style="color: #1e40af; margin-bottom: 10px;">💡 Optimization Suggestions</h3>
+                        ${scheduleData.suggestions.map(s => `<div style="padding: 8px; margin: 5px 0;">• ${s}</div>`).join('')}
+                    </div>
+                `;
+            }
+
+            if (scheduleData.workload_analysis) {
+                document.getElementById('workloadContainer').innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin: 20px 0;">
+                        ${Object.entries(scheduleData.workload_analysis).map(([day, load]) => `
+                            <div style="text-align: center; padding: 15px; border-radius: 8px; font-weight: bold; 
+                                background: ${load === 'light' ? '#d1fae5' : load === 'heavy' ? '#fee2e2' : '#dbeafe'};
+                                color: ${load === 'light' ? '#065f46' : load === 'heavy' ? '#991b1b' : '#1e40af'};">
+                                ${day}: ${load}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            const calendar = document.getElementById('calendarView');
+            calendar.innerHTML = scheduleData.schedule.map(day => `
+                <div class="day-column">
+                    <div class="day-header">
+                        <div>${day.day}</div>
+                        <div style="font-size: 12px; font-weight: normal;">${day.date}</div>
+                    </div>
+                    ${day.slots.map((slot, idx) => `
+                        <div class="schedule-slot ${slot.type}">
+                            <div style="font-weight: bold; margin-bottom: 5px;">${slot.time}</div>
+                            <div>${slot.task}</div>
+                            <div style="font-size: 11px; color: #888;">${slot.priority} priority</div>
+                            ${slot.notes ? `<div style="font-size: 11px; color: #666; margin-top: 5px;">💭 ${slot.notes}</div>` : ''}
+                            ${slot.flexible ? `
+                                <div class="slot-controls">
+                                    <button class="slot-btn" onclick="adjustTime('${day.day}', ${idx}, 'add')">+30min</button>
+                                    <button class="slot-btn danger" onclick="adjustTime('${day.day}', ${idx}, 'reduce')">-30min</button>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `).join('');
+        }
+
+        async function adjustTime(day, slotIdx, adjustment) {
+            const response = await fetch('/api/scheduler/adjust-task', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    day,
+                    task_id: slotIdx,
+                    adjustment: adjustment === 'add' ? 'add_30min' : 'reduce_30min'
+                })
+            });
+
+            const data = await response.json();
+            if (data.status === 'success') {
+                displaySchedule(data.schedule);
+            } else {
+                alert('Could not adjust task: ' + data.message);
+            }
+        }
+
+        function backToTasks() {
+            document.getElementById('scheduleSection').style.display = 'none';
+            document.getElementById('taskSection').style.display = 'block';
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!hasExistingRoutine) {
+                initRoutineSetup();
+            }
+        });
+    </script>
+</body>
+</html>

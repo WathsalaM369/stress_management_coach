@@ -705,7 +705,7 @@
             </button>
 
             <!-- Button to direct adaptive scheduler - Manuthi's part -->
-            <button onclick="" 
+            <button onclick="goToTaskScheduler()" 
                     class="btn-primary" 
                     style="background: linear-gradient(135deg, #FF4D6D 0%, #C9184A 100%) !important; 
                         color: white !important;
@@ -722,7 +722,7 @@
                         box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
                         flex: 1.5;
                         max-width: 400px;">
-                Manuthi
+                🗓️ Smart Task Scheduler
             </button>
         </div>
         <!-- end of Buttons section -->
@@ -735,7 +735,7 @@
 
     <script src="app.js"></script>
 
-    <!-- Add this script at the bottom of index.html, before </body> -->
+    <!-- senuthi's js -->
     <script>
     function goToActivityRecommender() {
         // Get current stress score if available
@@ -754,8 +754,28 @@
     }
     </script>
 
+    <script>
+    function goToTaskScheduler() {
+        // Check if user is logged in
+        fetch('/api/current-user')
+            .then(res => res.json())
+            .then(data => {
+                if (data.logged_in) {
+                    // User is logged in, go to scheduler
+                    window.location.href = '/task-scheduler';
+                } else {
+                    // Not logged in, prompt them
+                    if (confirm('Task Scheduler requires login. Continue as guest or login?')) {
+                        window.location.href = '/task-scheduler';
+                    }
+                }
+            })
+            .catch(() => {
+                // Error checking, just go anyway
+                window.location.href = '/task-scheduler';
+            });
+    }
+    </script>
+
 </body>
 </html>
-
-
-
