@@ -451,7 +451,7 @@
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async () => {
-            await fetchAndDisplayStressLevel();
+            loadStressLevel();
             initRoutineSetup();
             setMinDeadlineDate();
         });
@@ -459,6 +459,30 @@
         function setMinDeadlineDate() {
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('taskDeadline').min = today;
+        }
+
+        function loadStressLevel() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const score = urlParams.get('stress_score');
+            const level = urlParams.get('stress_level');
+
+            console.log('🔍 URL Parameters - Score:', score, 'Level:', level);
+
+            if (score && level && score !== '0.0') {
+                // Clean up the score if it has '/10' suffix
+                const cleanScore = score.replace('/10', '').trim();
+                stressData = {
+                    stress_score: parseFloat(cleanScore),
+                    stress_level: level.trim(),
+                    timestamp: new Date().toISOString(),
+                    isDefault: false
+                };
+                console.log('✅ Stress data loaded from URL:', stressData);
+                displayStressLevel();
+            } else {
+                console.log('⚠️ No valid URL parameters, trying API...');
+                fetchAndDisplayStressLevel();
+            }
         }
 
         async function fetchAndDisplayStressLevel() {
@@ -491,8 +515,8 @@
                     console.log('✅ Stress data loaded:', stressData);
                     displayStressLevel();
                 } else {
-                    console.log('⚠️ No stress history found, using default');
-                    useDefaultStressLevel();
+                    console.log('⚠️ No stress history found, showing message');
+                    showNoAssessmentMessage();
                 }
             } catch (error) {
                 console.error('❌ Error fetching stress level:', error);
@@ -517,6 +541,8 @@
             document.getElementById('stressDisplay').style.display = 'block';
             
             const indicator = document.getElementById('stressIndicator');
+            indicator.className = 'stress-indicator';
+            
             if (stressData.isDefault) {
                 indicator.classList.add('default');
             }
@@ -544,6 +570,19 @@
             }
             
             document.getElementById('stressExplanation').textContent = explanationText;
+        }
+
+        function showNoAssessmentMessage() {
+            document.getElementById('stressDisplay').innerHTML = `
+                <div class="stress-indicator default" style="text-align: center; padding: 40px;">
+                    <h3>📊 No Stress Assessment Found</h3>
+                    <p style="margin: 15px 0;">Please complete a stress assessment first to get a personalized schedule.</p>
+                    <a href="/" class="take-assessment-btn" style="display: inline-block; margin-top: 15px;">
+                        Take Assessment Now
+                    </a>
+                </div>
+            `;
+            document.getElementById('stressDisplay').style.display = 'block';
         }
 
         function initRoutineSetup() {
@@ -662,11 +701,11 @@
                     return data.estimated_duration;
                 } else {
                     console.error('❌ Duration estimation failed:', data.message);
-                    return 2; // Fallback to 2 hours
+                    return 2;
                 }
             } catch (error) {
                 console.error('❌ Error estimating duration:', error);
-                return 2; // Fallback to 2 hours
+                return 2;
             }
         }
 
@@ -685,7 +724,6 @@
             btn.disabled = true;
             btn.textContent = '🤖 AI is estimating duration...';
 
-            // Add task with temporary duration
             const task = {
                 id: taskId,
                 name,
@@ -698,10 +736,8 @@
             tasks.push(task);
             displayTasks();
 
-            // Estimate duration using AI
             const estimatedDuration = await estimateTaskDuration(name, priority, deadline);
             
-            // Update task with estimated duration
             const taskIndex = tasks.findIndex(t => t.id === taskId);
             if (taskIndex !== -1) {
                 tasks[taskIndex].duration = estimatedDuration;
@@ -709,7 +745,6 @@
                 displayTasks();
             }
 
-            // Reset form
             document.getElementById('taskName').value = '';
             document.getElementById('taskDeadline').value = '';
             btn.disabled = false;
@@ -756,7 +791,6 @@
                 return;
             }
 
-            // Check if any tasks are still estimating
             if (tasks.some(t => t.estimating)) {
                 alert('⏳ Please wait for AI to finish estimating task durations');
                 return;

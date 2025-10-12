@@ -754,10 +754,28 @@
     }
     </script>
 
-   <script>
-    function goToTaskScheduler() {
-        // Simply navigate - task scheduler handles everything
-        window.location.href = '/task-scheduler';
+    <script>
+        function goToTaskScheduler() {
+        // Get current stress score if available
+        const scoreElement = document.getElementById('stressScore');
+        const levelElement = document.getElementById('levelBadge');
+        
+        console.log('📊 Navigating to Task Scheduler');
+        console.log('Score element:', scoreElement?.textContent);
+        console.log('Level element:', levelElement?.textContent);
+        
+        if (scoreElement && levelElement && scoreElement.textContent !== '0.0') {
+            // Pass stress data via URL parameters (same as activity recommender)
+            const stressScore = scoreElement.textContent.replace('/10', '').trim();
+            const stressLevel = levelElement.textContent.trim();
+            
+            console.log('✅ Passing stress data:', stressScore, stressLevel);
+            window.location.href = `/task-scheduler?stress_score=${stressScore}&stress_level=${stressLevel}`;
+        } else {
+            console.log('⚠️ No assessment data, navigating without parameters');
+            // No assessment yet, just go to the page
+            window.location.href = '/task-scheduler';
+        }
     }
     </script>
 </body>
