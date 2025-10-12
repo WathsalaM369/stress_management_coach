@@ -722,7 +722,7 @@
                         box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
                         flex: 1.5;
                         max-width: 400px;">
-                🗓️ Smart Task Scheduler
+                Smart Task Scheduler
             </button>
         </div>
         <!-- end of Buttons section -->
@@ -755,25 +755,39 @@
     </script>
 
     <script>
-    function goToTaskScheduler() {
-        // Check if user is logged in
-        fetch('/api/current-user')
-            .then(res => res.json())
-            .then(data => {
-                if (data.logged_in) {
-                    // User is logged in, go to scheduler
-                    window.location.href = '/task-scheduler';
+    async function goToTaskScheduler() {
+        try {
+            // Check if user has recent stress assessment
+            const response = await fetch('/api/scheduler/check-status');
+            const data = await response.json();
+            
+            if (!data.has_stress_assessment) {
+                // No stress assessment found
+                const proceed = confirm(
+                    '⚠️ Task Scheduler works best with a recent stress assessment.\n\n' +
+                    'The AI uses your stress level to optimize your schedule:\n' +
+                    '• High stress: Fewer work hours, more breaks\n' +
+                    '• Medium stress: Balanced workload\n' +
+                    '• Low stress: Full productivity mode\n\n' +
+                    'Would you like to complete a stress assessment first?'
+                );
+                
+                if (proceed) {
+                    window.location.href = '/stress-assessment';
                 } else {
-                    // Not logged in, prompt them
-                    if (confirm('Task Scheduler requires login. Continue as guest or login?')) {
-                        window.location.href = '/task-scheduler';
-                    }
+                    window.location.href = '/task-scheduler';
                 }
-            })
-            .catch(() => {
-                // Error checking, just go anyway
+            } else {
+                // Has stress assessment, go directly
+                const stress = data.stress_data;
+                console.log(`✅ Using stress data: ${stress.stress_level} (${stress.stress_score}/10)`);
                 window.location.href = '/task-scheduler';
-            });
+            }
+        } catch (error) {
+            console.error('Error checking status:', error);
+            // If error, just go to scheduler anyway
+            window.location.href = '/task-scheduler';
+        }
     }
     </script>
 

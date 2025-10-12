@@ -63,6 +63,7 @@ from agents.motivational_agent import motivational_agent, MotivationRequest
 from config import Config
 from agents.activity_recommender_flask import activity_bp
 from agents.stress_estimator import StressEstimator
+from agents.adaptive_scheduler_agent import scheduler_agent
 from datetime import datetime, timedelta
 import requests
 import json
@@ -70,7 +71,7 @@ import os
 import secrets
 import hashlib
 import google.generativeai as genai
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Float
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -1074,7 +1075,6 @@ def debug_session():
 # =============================================================================
 # MANUTHI'S TASK SCHEDULER DATABASE SETUP
 # =============================================================================
-
 Base = declarative_base()
 scheduler_engine = create_engine('sqlite:///scheduler.db')
 SchedulerSession = sessionmaker(bind=scheduler_engine)
@@ -1093,7 +1093,7 @@ class UserSchedule(Base):
     user_id = Column(String, index=True)
     schedule_data = Column(Text)
     week_start = Column(String)
-    stress_level = Column(Integer)
+    stress_level = Column(Float)
     mood = Column(String)
     created_at = Column(DateTime, default=datetime.now)
 
@@ -1108,7 +1108,7 @@ Base.metadata.create_all(scheduler_engine)
 
 # Configure Gemini for Scheduler
 gemini_api_key = os.getenv('GOOGLE_API_KEY')
-if gemini_api_key:
+if gemini_api_key and gemini_api_key != 'your_actual_google_api_key_here':
     genai.configure(api_key=gemini_api_key)
     scheduler_model_name = os.getenv('GEMINI_MODEL', 'models/gemini-2.0-flash-001')
     scheduler_model = genai.GenerativeModel(scheduler_model_name)
@@ -1117,53 +1117,53 @@ else:
     scheduler_model = None
     print("⚠️ Scheduler Gemini not configured - API key missing")
 
-
 # =============================================================================
 # MANUTHI'S TASK SCHEDULER ROUTES
 # =============================================================================
-
 @flask_app.route('/task-scheduler')
 def task_scheduler():
     """Main Task Scheduler Interface"""
-    user_id = get_current_user_id()
-    
-    # Check if user has existing routine
-    db = SchedulerSession()
-    try:
-        existing_routine = db.query(UserRoutine).filter_by(user_id=user_id).first()
-        has_routine = existing_routine is not None
-    finally:
-        db.close()
-    
-    # Serve HTML file directly from root
     try:
         with open('task_scheduler.html', 'r', encoding='utf-8') as f:
-            html_content = f.read()
-            # Replace template variable with actual value
-            html_content = html_content.replace(
-                "{{ 'true' if has_routine else 'false' }}", 
-                'true' if has_routine else 'false'
-            )
-            html_content = html_content.replace(
-                "{% if not has_routine %}block{% else %}none{% endif %}",
-                'none' if has_routine else 'block'
-            )
-            html_content = html_content.replace(
-                "{% if has_routine %}block{% else %}none{% endif %}",
-                'block' if has_routine else 'none'
-            )
-            html_content = html_content.replace(
-                "{% if has_routine %}",
-                f"{'<!--' if not has_routine else ''}"
-            )
-            html_content = html_content.replace(
-                "{% endif %}",
-                f"{'-->' if not has_routine else ''}"
-            )
-            return html_content
+            return f.read()
     except FileNotFoundError:
         return jsonify({"error": "Task scheduler page not found"}), 404
+
+@flask_app.route('/api/scheduler/check-status', methods=['GET'])
+def check_scheduler_status():
+    """Check if user has routine and recent stress assessment"""
+    user_id = get_current_user_id()
     
+    db_scheduler = SchedulerSession()
+    try:
+        # Check for existing routine
+        existing_routine = db_scheduler.query(UserRoutine).filter_by(user_id=user_id).first()
+        has_routine = existing_routine is not None
+        
+        # Check for recent stress assessment (within 24 hours)
+        stress_history = flask_estimator.db_manager.get_user_history(user_id, 1)
+        
+        has_stress = False
+        latest_stress = None
+        
+        if stress_history and len(stress_history) > 0:
+            latest_stress = stress_history[0]
+            try:
+                assessment_time = datetime.fromisoformat(latest_stress['timestamp'].replace('Z', '+00:00'))
+                time_diff = datetime.now() - assessment_time
+                if time_diff.total_seconds() < 86400:  # 24 hours
+                    has_stress = True
+            except:
+                has_stress = True
+        
+        return jsonify({
+            'status': 'success',
+            'has_routine': has_routine,
+            'has_stress_assessment': has_stress,
+            'stress_data': latest_stress if has_stress else None
+        })
+    finally:
+        db_scheduler.close()
 
 @flask_app.route('/api/scheduler/save-routine', methods=['POST'])
 def save_scheduler_routine():
@@ -1188,20 +1188,16 @@ def save_scheduler_routine():
             existing.updated_at = datetime.now()
             message = 'Routine updated successfully'
         else:
-            new_routine = UserRoutine(
-                user_id=user_id,
-                routine_data=routine_json
-            )
+            new_routine = UserRoutine(user_id=user_id, routine_data=routine_json)
             db.add(new_routine)
             message = 'Routine saved successfully'
         
         db.commit()
-        print(f"✅ Routine saved for user: {user_id}")
-        
+        print(f"✅ {message} for user: {user_id}")
         return jsonify({'status': 'success', 'message': message})
     except Exception as e:
         db.rollback()
-        print(f"❌ Error saving routine: {e}")
+        print(f"❌ Error saving routine: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
     finally:
         db.close()
@@ -1227,52 +1223,14 @@ def get_scheduler_routine():
     finally:
         db.close()
 
-@flask_app.route('/api/scheduler/fetch-stress', methods=['POST'])
-def fetch_stress_for_scheduler():
-    """Fetch stress data from Stress Estimator for scheduling"""
-    data = request.json
-    user_description = data.get('user_description')
-    user_id = get_current_user_id()
-    
-    try:
-        # Call the analyze_mood endpoint internally
-        stress_request_data = {
-            'input_method': 'text',
-            'user_input': user_description,
-            'assessment_data': {}
-        }
-        
-        # Use the stress estimator directly
-        result = flask_estimator.enhanced_comprehensive_analysis(stress_request_data, user_id)
-        
-        print(f"✅ Stress data fetched for scheduler: {result.get('stress_score')}/10 - {result.get('stress_level')}")
-        
-        return jsonify({
-            'status': 'success',
-            'stress_data': {
-                'stress_score': result.get('stress_score', 5),
-                'stress_level': result.get('stress_level', 'Medium'),
-                'mood': result.get('mood', 'neutral'),
-                'detailed_analysis': result.get('detailed_analysis', ''),
-                'key_indicators': result.get('key_indicators', [])
-            }
-        })
-            
-    except Exception as e:
-        print(f"❌ Error fetching stress data: {e}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
 @flask_app.route('/api/scheduler/generate-schedule', methods=['POST'])
 def generate_scheduler_schedule():
-    """Generate optimized schedule using ONLY Gemini LLM"""
+    """Generate optimized schedule using Gemini"""
     data = request.json
     user_id = get_current_user_id()
     
     if not scheduler_model:
-        return jsonify({
-            'status': 'error',
-            'message': 'Gemini API not configured'
-        }), 500
+        return jsonify({'status': 'error', 'message': 'AI scheduling not available. Please check Gemini API configuration.'}), 500
     
     tasks = data.get('tasks', [])
     week_start = data.get('week_start')
@@ -1280,9 +1238,11 @@ def generate_scheduler_schedule():
     stress_level = data.get('stress_level', 'Medium')
     mood = data.get('mood', 'neutral')
     
+    print(f"🗓️ Generating schedule for {len(tasks)} tasks, stress: {stress_score}/10")
+    
     db = SchedulerSession()
     try:
-        # Get user's routine from database
+        # Get user's routine
         user_routine_record = db.query(UserRoutine).filter_by(user_id=user_id).first()
         
         if not user_routine_record:
@@ -1294,105 +1254,65 @@ def generate_scheduler_schedule():
         routine_data = json.loads(user_routine_record.routine_data)
         routine = routine_data.get('weekly_routine', {})
         
-        # Build comprehensive prompt for Gemini
-        prompt = f"""
-You are an AI Task Scheduler Agent. Create an optimized weekly schedule using ONLY the information provided.
+        # Build enhanced prompt
+        prompt = f"""You are an AI Task Scheduler. Create an optimized weekly schedule with STRICT DEADLINE compliance.
 
-USER'S WEEKLY ROUTINE FROM DATABASE:
+USER'S WEEKLY ROUTINE:
 {json.dumps(routine, indent=2)}
 
-TASKS TO SCHEDULE:
-{json.dumps(tasks, indent=2)}
+TASKS TO SCHEDULE (sorted by urgency):
+{json.dumps(sorted(tasks, key=lambda x: (x.get('deadline', '9999-12-31'), 0 if x.get('priority')=='high' else 1)), indent=2)}
 
-STRESS ASSESSMENT (from Stress Estimator Agent):
+STRESS CONTEXT:
 - Stress Score: {stress_score}/10
 - Stress Level: {stress_level}
-- Current Mood: {mood}
-- Week Starting: {week_start}
+- Mood: {mood}
+- Week Start: {week_start}
 
-CRITICAL SCHEDULING RULES BASED ON STRESS:
+SCHEDULING RULES:
+1. HIGH PRIORITY + URGENT DEADLINES FIRST (deadline within 2 days)
+2. ALL tasks MUST be scheduled BEFORE their deadline
+3. High stress (≥7): Max 4-5h work/day, 20min buffers, frequent breaks
+4. Medium stress (4-6): Max 6-7h work/day, 10min buffers
+5. Low stress (1-3): Up to 8h work/day, standard buffers
+6. NEVER schedule during "blocked" or "sleep" time slots
+7. Add stress-relief breaks between intense tasks
 
-IF STRESS LEVEL IS "High" or "Very High" or "Chronic High" (score >= 7):
-1. Add 20-minute buffer between ALL tasks
-2. Schedule only 4-5 hours of focused work per day (maximum)
-3. Break tasks longer than 1 hour into 45-minute chunks with 15-min breaks
-4. Schedule easiest/routine tasks in morning to build momentum
-5. Add mandatory 15-minute breaks every 90 minutes
-6. Push all low-priority tasks to end of week
-7. Include relaxation time blocks (mark as "Break - Stress Relief")
-8. Never schedule back-to-back intensive tasks
-
-IF STRESS LEVEL IS "Medium" (score 4-6):
-1. Add 10-minute buffer between intensive tasks
-2. Limit to 6-7 hours of focused work per day
-3. Balance challenging and routine tasks
-4. Include 10-minute breaks every 2 hours
-5. Can handle moderate task density
-
-IF STRESS LEVEL IS "Low" (score 1-3):
-1. Can schedule denser task blocks
-2. Up to 8 hours of focused work per day
-3. 5-minute transitions between tasks sufficient
-4. Prioritize high-impact, challenging work
-
-MOOD-BASED OPTIMIZATION:
-- "tired" or "stressed" or "anxious": Only routine tasks, avoid creative/complex work
-- "focused" or "energetic": Schedule complex, high-priority, creative tasks
-- "scattered": Break everything into 30-min blocks with frequent breaks
-- "neutral": Standard scheduling approach
-
-GENERAL RULES:
-1. NEVER schedule during user's blocked time slots from routine
-2. NEVER overlap with existing commitments in routine
-3. Tasks with deadlines get priority
-4. Group similar task types together
-5. Respect user's work hours from routine
-6. Balance workload across week (don't overload single days)
-7. Add flexibility - mark some tasks as "flexible: true"
-8. Include reasoning in "notes" field
-
-OUTPUT FORMAT (MUST BE VALID JSON):
+OUTPUT (JSON only):
 {{
   "schedule": [
     {{
       "day": "Monday",
-      "date": "2025-10-13",
+      "date": "2025-10-14",
+      "total_work_hours": 5.5,
       "slots": [
         {{
-          "time": "09:00-10:30",
-          "task": "Task Name",
+          "time": "09:00-11:00",
+          "task": "Task name",
           "priority": "High",
           "type": "work",
-          "flexible": true,
-          "notes": "Scheduled during low-stress morning period based on {stress_level} stress"
+          "flexible": false,
+          "deadline": "2025-10-16",
+          "urgency": "urgent",
+          "notes": "High priority - deadline in 2 days"
         }}
       ]
     }}
   ],
-  "warnings": ["Any scheduling conflicts or concerns"],
-  "suggestions": ["Recommendations based on stress level"],
-  "workload_analysis": {{
-    "Monday": "balanced",
-    "Tuesday": "light",
-    "Wednesday": "balanced",
-    "Thursday": "balanced",
-    "Friday": "light",
-    "Saturday": "light",
-    "Sunday": "light"
-  }},
-  "stress_adaptations": ["How schedule was adapted for {stress_level} stress"]
+  "warnings": ["List any scheduling conflicts or deadline issues"],
+  "suggestions": ["Optimization tips"],
+  "workload_analysis": {{"Monday": "balanced", "Tuesday": "light"}},
+  "stress_adaptations": ["Applied 5h daily limit for high stress"],
+  "deadline_compliance": ["All 8 tasks scheduled before deadlines"]
 }}
 
-IMPORTANT: Return ONLY valid JSON, no other text. Ensure all times don't conflict with routine blocks.
-"""
-        
-        print(f"🤖 Calling Gemini to generate schedule for stress level: {stress_level}")
-        
+Return ONLY valid JSON, no markdown."""
+
         # Call Gemini
         response = scheduler_model.generate_content(prompt)
         response_text = response.text.strip()
         
-        # Extract JSON from response
+        # Clean response
         if '```json' in response_text:
             json_start = response_text.find('```json') + 7
             json_end = response_text.find('```', json_start)
@@ -1415,117 +1335,27 @@ IMPORTANT: Return ONLY valid JSON, no other text. Ensure all times don't conflic
         db.add(new_schedule)
         
         # Save tasks
-        new_tasks = TaskRecord(
-            user_id=user_id,
-            tasks_data=json.dumps(tasks)
-        )
+        new_tasks = TaskRecord(user_id=user_id, tasks_data=json.dumps(tasks))
         db.add(new_tasks)
         
         db.commit()
         
         print(f"✅ Schedule generated and saved for user: {user_id}")
-        
-        return jsonify({
-            'status': 'success',
-            'schedule': schedule_data
-        })
+        return jsonify({'status': 'success', 'schedule': schedule_data})
         
     except json.JSONDecodeError as e:
-        print(f"❌ Failed to parse Gemini response as JSON: {e}")
-        print(f"Response was: {response_text[:500]}...")
-        return jsonify({
-            'status': 'error',
-            'message': 'AI generated invalid schedule format. Please try again.'
-        }), 500
+        print(f"❌ JSON parsing error: {e}")
+        return jsonify({'status': 'error', 'message': 'AI generated invalid response. Please try again.'}), 500
     except Exception as e:
         db.rollback()
-        print(f"❌ Error generating schedule: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': f'Error generating schedule: {str(e)}'
-        }), 500
-    finally:
-        db.close()
-
-@flask_app.route('/api/scheduler/adjust-task', methods=['POST'])
-def adjust_scheduler_task():
-    """Adjust time allocation using Gemini"""
-    data = request.json
-    user_id = get_current_user_id()
-    
-    if not scheduler_model:
-        return jsonify({'status': 'error', 'message': 'Gemini API not configured'}), 500
-    
-    task_id = data.get('task_id')
-    adjustment = data.get('adjustment')
-    day = data.get('day')
-    
-    db = SchedulerSession()
-    try:
-        latest_schedule = db.query(UserSchedule).filter_by(user_id=user_id).order_by(UserSchedule.created_at.desc()).first()
-        
-        if not latest_schedule:
-            return jsonify({'status': 'error', 'message': 'No schedule found'}), 404
-        
-        schedule = json.loads(latest_schedule.schedule_data)
-        
-        prompt = f"""
-Adjust this schedule based on user request:
-
-CURRENT SCHEDULE:
-{json.dumps(schedule, indent=2)}
-
-ADJUSTMENT REQUEST:
-- Day: {day}
-- Task Index: {task_id}
-- Change: {adjustment} (add_30min or reduce_30min)
-
-Rules:
-1. Adjust the specified task's time
-2. Check for conflicts with surrounding tasks
-3. Maintain breaks between intensive tasks
-4. If conflict, suggest moving other tasks
-5. Preserve all other scheduled items
-
-Return the complete updated schedule in the same JSON format.
-"""
-        
-        response = scheduler_model.generate_content(prompt)
-        response_text = response.text.strip()
-        
-        if '```json' in response_text:
-            json_start = response_text.find('```json') + 7
-            json_end = response_text.find('```', json_start)
-            response_text = response_text[json_start:json_end].strip()
-        
-        updated_schedule = json.loads(response_text)
-        
-        # Save updated schedule
-        new_schedule = UserSchedule(
-            user_id=user_id,
-            schedule_data=json.dumps(updated_schedule),
-            week_start=latest_schedule.week_start,
-            stress_level=latest_schedule.stress_level,
-            mood=latest_schedule.mood
-        )
-        db.add(new_schedule)
-        db.commit()
-        
-        return jsonify({
-            'status': 'success',
-            'schedule': updated_schedule
-        })
-        
-    except Exception as e:
-        db.rollback()
-        print(f"❌ Error adjusting task: {e}")
+        print(f"❌ Error generating schedule: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
     finally:
         db.close()
 
 @flask_app.route('/api/scheduler/get-schedule', methods=['GET'])
 def get_scheduler_schedule():
-    """Retrieve latest schedule"""
+    """Get latest schedule"""
     user_id = get_current_user_id()
     
     db = SchedulerSession()
@@ -1537,14 +1367,66 @@ def get_scheduler_schedule():
             return jsonify({
                 'status': 'success',
                 'schedule': schedule_data,
-                'created_at': latest_schedule.created_at.isoformat(),
-                'stress_level': latest_schedule.stress_level,
-                'mood': latest_schedule.mood
+                'created_at': latest_schedule.created_at.isoformat()
             })
         return jsonify({'status': 'error', 'message': 'No schedule found'}), 404
     finally:
         db.close()
 
+@flask_app.route('/api/scheduler/export-calendar', methods=['POST'])
+def export_to_calendar():
+    """Export schedule to iCal format for Google Calendar"""
+    data = request.json
+    schedule = data.get('schedule')
+    
+    if not schedule:
+        return jsonify({'status': 'error', 'message': 'No schedule data provided'}), 400
+    
+    # Build iCal content
+    ical_lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//MindSoothe Task Scheduler//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "X-WR-CALNAME:MindSoothe Schedule",
+        "X-WR-TIMEZONE:UTC",
+        "X-WR-CALDESC:AI-optimized task schedule from MindSoothe"
+    ]
+    
+    for day_schedule in schedule.get('schedule', []):
+        date_str = day_schedule['date'].replace('-', '')
+        
+        for slot in day_schedule.get('slots', []):
+            if slot.get('type') == 'work':  # Only export work tasks
+                time_parts = slot['time'].split('-')
+                start_time = time_parts[0].replace(':', '')
+                end_time = time_parts[1].replace(':', '')
+                
+                # Build event
+                event_lines = [
+                    "BEGIN:VEVENT",
+                    f"DTSTART:{date_str}T{start_time}00",
+                    f"DTEND:{date_str}T{end_time}00",
+                    f"SUMMARY:{slot['task']}",
+                    f"DESCRIPTION:Priority: {slot.get('priority', 'Medium')}\\nType: {slot.get('type', 'work')}\\n{slot.get('notes', '')}",
+                    "STATUS:CONFIRMED",
+                    f"UID:{date_str}T{start_time}00-{slot['task'].replace(' ', '-')}@mindsoothe.app",
+                    f"DTSTAMP:{datetime.now().strftime('%Y%m%dT%H%M%SZ')}",
+                    "END:VEVENT"
+                ]
+                ical_lines.extend(event_lines)
+    
+    ical_lines.append("END:VCALENDAR")
+    ical_content = '\n'.join(ical_lines)
+    
+    filename = f'mindsoothe_schedule_{datetime.now().strftime("%Y%m%d")}.ics'
+    
+    return jsonify({
+        'status': 'success',
+        'ical_data': ical_content,
+        'filename': filename
+    })
 # =============================================================================
 # SHARED/COMMON ROUTES
 # =============================================================================
