@@ -1353,6 +1353,132 @@ Return ONLY valid JSON, no markdown."""
     finally:
         db.close()
 
+@flask_app.route('/api/scheduler/estimate-duration', methods=['POST'])
+def estimate_task_duration():
+    """Use Gemini to estimate task duration based on task name and context"""
+    try:
+        data = request.json
+        task_name = data.get('task_name')
+        priority = data.get('priority', 'medium')
+        deadline = data.get('deadline')
+        stress_level = data.get('stress_level', 'Medium')
+        stress_score = data.get('stress_score', 5.0)
+        
+        print(f"🤖 Estimating duration for task: {task_name}")
+        
+        if not scheduler_model:
+            # Fallback: Rule-based estimation
+            return jsonify({
+                'status': 'success',
+                'estimated_duration': estimate_duration_fallback(task_name, priority),
+                'method': 'rule_based'
+            })
+        
+        # Use Gemini for intelligent estimation
+        prompt = f"""You are a task duration estimation expert. Estimate how long this task will take, INCLUDING preparation time and buffer.
+
+TASK DETAILS:
+- Task Name: {task_name}
+- Priority: {priority}
+- Deadline: {deadline}
+- User's Stress Level: {stress_level} ({stress_score}/10)
+
+ESTIMATION GUIDELINES:
+1. Consider the task type and complexity
+2. Include preparation time (setup, research, gathering materials)
+3. Add buffer time for breaks and unexpected issues
+4. Adjust for stress level:
+   - High stress (7-10): Add 20-30% buffer
+   - Medium stress (4-6): Add 10-20% buffer
+   - Low stress (1-3): Standard estimation
+
+COMMON TASK TYPES:
+- "Write report/document": 2-4 hours
+- "Presentation prep": 3-5 hours
+- "Meeting": 1-2 hours
+- "Research": 2-6 hours
+- "Code/develop": 4-8 hours
+- "Review/analyze": 1-3 hours
+- "Plan/organize": 1-2 hours
+- "Email/communicate": 0.5-1 hour
+
+Return ONLY a JSON object:
+{{
+  "estimated_hours": 2.5,
+  "explanation": "Brief reason for this estimate"
+}}
+
+Be realistic but slightly generous with time estimates."""
+
+        response = scheduler_model.generate_content(prompt)
+        response_text = response.text.strip()
+        
+        # Clean response
+        if '```json' in response_text:
+            json_start = response_text.find('```json') + 7
+            json_end = response_text.find('```', json_start)
+            response_text = response_text[json_start:json_end].strip()
+        elif '```' in response_text:
+            json_start = response_text.find('```') + 3
+            json_end = response_text.rfind('```')
+            response_text = response_text[json_start:json_end].strip()
+        
+        estimation_data = json.loads(response_text)
+        estimated_hours = float(estimation_data.get('estimated_hours', 2.0))
+        
+        # Ensure reasonable bounds
+        estimated_hours = max(0.5, min(estimated_hours, 12.0))
+        
+        print(f"✅ Estimated {estimated_hours} hours for '{task_name}'")
+        
+        return jsonify({
+            'status': 'success',
+            'estimated_duration': estimated_hours,
+            'explanation': estimation_data.get('explanation', 'AI-estimated duration'),
+            'method': 'gemini_ai'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error estimating duration: {str(e)}")
+        # Fallback
+        return jsonify({
+            'status': 'success',
+            'estimated_duration': estimate_duration_fallback(task_name, priority),
+            'method': 'fallback'
+        })
+
+def estimate_duration_fallback(task_name, priority):
+    """Simple rule-based fallback for duration estimation"""
+    task_lower = task_name.lower()
+    
+    # Check for keywords
+    if any(word in task_lower for word in ['write', 'document', 'report', 'essay']):
+        base = 3.0
+    elif any(word in task_lower for word in ['presentation', 'present', 'pitch']):
+        base = 4.0
+    elif any(word in task_lower for word in ['meeting', 'call', 'interview']):
+        base = 1.5
+    elif any(word in task_lower for word in ['research', 'study', 'learn']):
+        base = 3.0
+    elif any(word in task_lower for word in ['code', 'develop', 'program', 'build']):
+        base = 6.0
+    elif any(word in task_lower for word in ['review', 'check', 'analyze']):
+        base = 2.0
+    elif any(word in task_lower for word in ['plan', 'organize', 'schedule']):
+        base = 1.5
+    elif any(word in task_lower for word in ['email', 'message', 'respond']):
+        base = 0.5
+    else:
+        base = 2.0  # Default
+    
+    # Adjust for priority
+    if priority == 'high':
+        base *= 1.2  # More time for high priority
+    elif priority == 'low':
+        base *= 0.8
+    
+    return round(base, 1)
+
 @flask_app.route('/api/scheduler/get-schedule', methods=['GET'])
 def get_scheduler_schedule():
     """Get latest schedule"""

@@ -90,6 +90,27 @@
             margin: 10px 0;
         }
 
+        .stress-indicator.default {
+            background: linear-gradient(to right, #3b82f6, #8b5cf6);
+        }
+
+        .take-assessment-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .take-assessment-btn:hover {
+            background: #f0f4ff;
+        }
+
         .routine-setup {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -156,7 +177,7 @@
 
         .task-form {
             display: grid;
-            grid-template-columns: 2fr 1fr 1fr 1fr;
+            grid-template-columns: 2fr 1fr 1fr;
             gap: 15px;
             margin-bottom: 15px;
         }
@@ -178,6 +199,15 @@
             cursor: pointer;
             font-size: 16px;
             font-weight: bold;
+        }
+
+        .add-task-btn:hover {
+            background: #059669;
+        }
+
+        .add-task-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
         }
 
         .tasks-list {
@@ -207,6 +237,24 @@
             border-left-color: #10b981;
         }
 
+        .task-item.estimating {
+            opacity: 0.6;
+        }
+
+        .task-duration-badge {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 10px;
+            display: inline-block;
+        }
+
+        .ai-estimated {
+            background: #10b981;
+        }
+
         .btn-primary {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -219,6 +267,11 @@
             display: block;
             margin: 30px auto;
             box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
         }
 
         .loading {
@@ -271,35 +324,38 @@
             margin: 10px 5px;
         }
 
-        .no-stress-warning {
-            background: #fee2e2;
-            border: 2px solid #ef4444;
-            padding: 20px;
+        .info-box {
+            background: #dbeafe;
+            border: 2px solid #3b82f6;
             border-radius: 10px;
-            margin-bottom: 30px;
-            text-align: center;
+            padding: 15px;
+            margin-bottom: 20px;
         }
 
-        .no-stress-warning h3 {
-            color: #991b1b;
-            margin-bottom: 10px;
+        .info-box h4 {
+            color: #1e40af;
+            margin-bottom: 8px;
         }
 
-        .no-stress-warning a {
-            display: inline-block;
-            margin-top: 15px;
-            padding: 10px 20px;
-            background: #ef4444;
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
+        .info-box ul {
+            margin-left: 20px;
+            color: #1e3a8a;
+        }
+
+        .estimation-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: #10b981;
+            margin-top: 5px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🗓️ Adaptive Task Scheduler</h1>
-        <p class="subtitle">AI-powered scheduling based on your stress levels and routine</p>
+        <h1>🗓️ Smart Task Scheduler</h1>
+        <p class="subtitle">AI-powered scheduling with automatic time estimation</p>
 
         <div class="progress-steps">
             <div class="step active" id="step1">1. Routine Setup</div>
@@ -309,26 +365,17 @@
 
         <!-- Stress Level Display -->
         <div id="stressDisplay" style="display: none;">
-            <div class="stress-indicator">
+            <div class="stress-indicator" id="stressIndicator">
                 <h3>📊 Your Current Stress Level</h3>
                 <div class="stress-score" id="stressScore">-/10</div>
                 <div class="stress-details">
                     <strong>Stress Level:</strong> <span id="stressLevel">Loading...</span>
                 </div>
                 <p id="stressExplanation" style="margin-top: 15px; font-size: 0.95em;"></p>
+                <a href="/" class="take-assessment-btn" id="reassessmentBtn" style="display: none;">
+                    📊 Update Stress Assessment
+                </a>
             </div>
-        </div>
-
-        <!-- No Stress Warning -->
-        <div id="noStressWarning" class="no-stress-warning" style="display: none;">
-            <h3>ℹ️ Using Default Stress Level</h3>
-            <p>We'll use a Medium stress level for balanced scheduling.</p>
-            <p>For personalized scheduling, complete a stress assessment.</p>
-            <a href="/" style="margin-top: 10px; display: inline-block;">Take Assessment</a>
-            <button onclick="useDefaultStressLevel(); document.getElementById('noStressWarning').style.display='none';" 
-                    style="margin-top: 10px; padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                Continue with Medium Stress Level
-            </button>
         </div>
 
         <!-- Step 1: Routine Setup -->
@@ -344,19 +391,30 @@
         <div class="setup-section" id="taskSection" style="display: none;">
             <h2 style="color: #333; margin-bottom: 20px;">Step 2: Add Tasks to Schedule</h2>
             
+            <div class="info-box">
+                <h4>🤖 AI-Powered Duration Estimation</h4>
+                <p>Just enter your task name and deadline - our AI will automatically estimate how long each task will take based on:</p>
+                <ul>
+                    <li>Task complexity and type</li>
+                    <li>Your current stress level</li>
+                    <li>Preparation and buffer time needed</li>
+                </ul>
+            </div>
+
             <div class="task-input-section">
                 <h3 style="margin-bottom: 15px;">Enter Your Tasks</h3>
                 <div class="task-form">
-                    <input type="text" id="taskName" placeholder="Task Name" required>
-                    <input type="number" id="taskDuration" placeholder="Hours" min="0.5" step="0.5" required>
+                    <input type="text" id="taskName" placeholder="Task Name (e.g., 'Prepare presentation')" required>
                     <select id="taskPriority">
                         <option value="high">High Priority</option>
                         <option value="medium">Medium Priority</option>
                         <option value="low">Low Priority</option>
                     </select>
-                    <input type="date" id="taskDeadline" placeholder="Deadline">
+                    <input type="date" id="taskDeadline" placeholder="Deadline" required>
                 </div>
-                <button class="add-task-btn" onclick="addTask()">➕ Add Task</button>
+                <button class="add-task-btn" onclick="addTask()" id="addTaskBtn">
+                    ➕ Add Task (AI will estimate duration)
+                </button>
                 <div class="tasks-list" id="tasksList"></div>
             </div>
             
@@ -395,11 +453,16 @@
         document.addEventListener('DOMContentLoaded', async () => {
             await fetchAndDisplayStressLevel();
             initRoutineSetup();
+            setMinDeadlineDate();
         });
+
+        function setMinDeadlineDate() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('taskDeadline').min = today;
+        }
 
         async function fetchAndDisplayStressLevel() {
             try {
-                // First, get current user
                 const userResponse = await fetch('/api/current-user');
                 const userData = await userResponse.json();
                 
@@ -411,7 +474,6 @@
 
                 console.log('✅ User logged in:', userData.username);
 
-                // Get user's stress history
                 const historyResponse = await fetch(`/api/history/${userData.user_id}`);
                 const historyData = await historyResponse.json();
                 
@@ -453,7 +515,11 @@
             if (!stressData) return;
 
             document.getElementById('stressDisplay').style.display = 'block';
-            document.getElementById('noStressWarning').style.display = 'none';
+            
+            const indicator = document.getElementById('stressIndicator');
+            if (stressData.isDefault) {
+                indicator.classList.add('default');
+            }
             
             document.getElementById('stressScore').textContent = `${stressData.stress_score.toFixed(1)}/10`;
             document.getElementById('stressLevel').textContent = stressData.stress_level;
@@ -469,15 +535,15 @@
             let explanationText = explanations[stressData.stress_level] || 'Your schedule will be optimized based on your stress level.';
             
             if (stressData.isDefault) {
-                explanationText = '📊 Using default Medium stress level. Complete a stress assessment for personalized scheduling! ' + explanationText;
+                explanationText = '📊 Using default Medium stress level. ' + explanationText;
+                document.getElementById('reassessmentBtn').style.display = 'inline-block';
+                document.getElementById('reassessmentBtn').textContent = '📊 Take Stress Assessment for Better Results';
+            } else {
+                document.getElementById('reassessmentBtn').style.display = 'inline-block';
+                document.getElementById('reassessmentBtn').textContent = '🔄 Update Stress Assessment';
             }
             
             document.getElementById('stressExplanation').textContent = explanationText;
-        }
-
-        function showNoStressWarning() {
-            document.getElementById('stressDisplay').style.display = 'none';
-            document.getElementById('noStressWarning').style.display = 'block';
         }
 
         function initRoutineSetup() {
@@ -573,31 +639,81 @@
             }
         }
 
-        function addTask() {
+        async function estimateTaskDuration(taskName, priority, deadline) {
+            try {
+                console.log('🤖 Estimating duration for:', taskName);
+                
+                const response = await fetch('/api/scheduler/estimate-duration', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        task_name: taskName,
+                        priority: priority,
+                        deadline: deadline,
+                        stress_level: stressData?.stress_level || 'Medium',
+                        stress_score: stressData?.stress_score || 5.0
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    console.log('✅ Duration estimated:', data.estimated_duration, 'hours');
+                    return data.estimated_duration;
+                } else {
+                    console.error('❌ Duration estimation failed:', data.message);
+                    return 2; // Fallback to 2 hours
+                }
+            } catch (error) {
+                console.error('❌ Error estimating duration:', error);
+                return 2; // Fallback to 2 hours
+            }
+        }
+
+        async function addTask() {
             const name = document.getElementById('taskName').value;
-            const duration = document.getElementById('taskDuration').value;
             const priority = document.getElementById('taskPriority').value;
             const deadline = document.getElementById('taskDeadline').value;
 
-            if (!name || !duration) {
-                alert('Please fill in task name and duration');
+            if (!name || !deadline) {
+                alert('Please fill in task name and deadline');
                 return;
             }
 
+            const taskId = Date.now();
+            const btn = document.getElementById('addTaskBtn');
+            btn.disabled = true;
+            btn.textContent = '🤖 AI is estimating duration...';
+
+            // Add task with temporary duration
             const task = {
-                id: Date.now(),
+                id: taskId,
                 name,
-                duration: parseFloat(duration),
                 priority,
-                deadline: deadline || null
+                deadline,
+                duration: 0,
+                estimating: true
             };
 
             tasks.push(task);
             displayTasks();
 
+            // Estimate duration using AI
+            const estimatedDuration = await estimateTaskDuration(name, priority, deadline);
+            
+            // Update task with estimated duration
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
+            if (taskIndex !== -1) {
+                tasks[taskIndex].duration = estimatedDuration;
+                tasks[taskIndex].estimating = false;
+                displayTasks();
+            }
+
+            // Reset form
             document.getElementById('taskName').value = '';
-            document.getElementById('taskDuration').value = '';
             document.getElementById('taskDeadline').value = '';
+            btn.disabled = false;
+            btn.textContent = '➕ Add Task (AI will estimate duration)';
         }
 
         function displayTasks() {
@@ -608,15 +724,23 @@
             }
             
             container.innerHTML = tasks.map(task => `
-                <div class="task-item ${task.priority}">
+                <div class="task-item ${task.priority} ${task.estimating ? 'estimating' : ''}">
                     <div class="task-info">
-                        <div class="task-name">${task.name}</div>
+                        <div class="task-name">
+                            ${task.name}
+                            ${task.estimating ? 
+                                '<span class="task-duration-badge">⏳ Estimating...</span>' : 
+                                `<span class="task-duration-badge ai-estimated">🤖 ${task.duration}h</span>`
+                            }
+                        </div>
                         <div class="task-details">
-                            ${task.duration} hours • ${task.priority} priority
-                            ${task.deadline ? ` • Due: ${new Date(task.deadline).toLocaleDateString()}` : ''}
+                            ${task.priority} priority • Due: ${new Date(task.deadline).toLocaleDateString()}
+                            ${!task.estimating ? '<div class="estimation-indicator">✨ AI-estimated duration with prep time</div>' : ''}
                         </div>
                     </div>
-                    <button class="remove-task" onclick="removeTask(${task.id})">Remove</button>
+                    <button class="remove-task" onclick="removeTask(${task.id})" ${task.estimating ? 'disabled' : ''}>
+                        ${task.estimating ? '⏳' : 'Remove'}
+                    </button>
                 </div>
             `).join('');
         }
@@ -632,7 +756,12 @@
                 return;
             }
 
-            // Ensure we have stress data (either from assessment or default)
+            // Check if any tasks are still estimating
+            if (tasks.some(t => t.estimating)) {
+                alert('⏳ Please wait for AI to finish estimating task durations');
+                return;
+            }
+
             if (!stressData) {
                 console.log('No stress data, using default Medium');
                 useDefaultStressLevel();
