@@ -81,9 +81,7 @@ class AdaptiveSchedulerAgent:
         for task in tasks:
             if not task.get('deadline'):
                 task['deadline'] = (datetime.strptime(week_start, '%Y-%m-%d') + timedelta(days=7)).strftime('%Y-%m-%d')
-            # Set default duration if not provided (LLM will calculate optimal duration)
-            if not task.get('duration'):
-                task['duration'] = 2  # Default 2 hours, LLM will optimize
+            # NO default duration - LLM will calculate based on task context
         
         if self.use_llm and self.llm_client:
             return self._gemini_schedule(user_routine, tasks, stress_data, week_start, mood)
