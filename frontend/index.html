@@ -605,6 +605,79 @@
                     <button class="btn-secondary" onclick="resetAnalysis()">
                         🔄 Analyze Again
                     </button>
+                    
+                    <!-- ADD THIS NEW BUTTON -->
+                    <button class="btn-primary" onclick="showMotivationPage()" style="margin-top: 10px;">
+                        💫 Get Motivational Support
+                    </button>
+                </div>
+            </section>
+
+            <!-- Motivation Section -->
+            <section class="motivation-section" id="motivationSection" style="display: none;">
+                <div class="motivation-container">
+                    <div class="motivation-header">
+                        <div class="coach-avatar">💫</div>
+                        <h2>Your Personal Motivation Coach</h2>
+                        <div class="stress-badge">Stress Level: <span id="motivationStressLevel">0</span>/10</div>
+                    </div>
+
+                    <div class="motivation-content">
+                        <div class="message-container">
+                            <div class="typing-indicator" id="typingIndicator">
+                                Your coach is crafting a personalized message...
+                            </div>
+                            <div class="motivation-text" id="motivationText">
+                                <!-- Message will appear here -->
+                            </div>
+                        </div>
+
+                        <div class="audio-controls">
+                            <button class="play-button" id="playButton" onclick="toggleAudio()">
+                                <span>🔊</span>
+                                <span id="playText">Listen to Message</span>
+                            </button>
+                            <div class="audio-visualizer">
+                                <div class="audio-wave" id="audioWave"></div>
+                            </div>
+                        </div>
+
+                        <div class="actions-grid">
+                            <div class="action-card" onclick="startBreathingExercise()">
+                                <span class="action-icon">🌬️</span>
+                                <strong>Breathe</strong>
+                                <small>2-minute calm</small>
+                            </div>
+                            <div class="action-card" onclick="showAffirmations()">
+                                <span class="action-icon">💝</span>
+                                <strong>Affirmations</strong>
+                                <small>Positive boost</small>
+                            </div>
+                            <div class="action-card" onclick="saveMotivation()">
+                                <span class="action-icon">💾</span>
+                                <strong>Save</strong>
+                                <small>Keep this message</small>
+                            </div>
+                            <div class="action-card" onclick="goBackToResults()">
+                                <span class="action-icon">📊</span>
+                                <strong>Back to Results</strong>
+                                <small>View analysis</small>
+                            </div>
+                        </div>
+
+                        <div class="breathing-exercise" id="breathingExercise" style="display: none;">
+                            <h3>🌬️ Breathing Exercise</h3>
+                            <p>Follow the circle - Breathe in as it expands, out as it contracts</p>
+                            <div class="breathing-circle">Breathe</div>
+                            <button class="btn-primary" onclick="stopBreathingExercise()">I feel calmer</button>
+                        </div>
+
+                        <div class="next-steps">
+                            <button class="btn-primary" onclick="generateNewMotivation()">
+                                🔄 Get New Motivation
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </section>
         </div>
@@ -632,7 +705,7 @@
             </button>
 
             <!-- Button to direct adaptive scheduler - Manuthi's part -->
-            <button onclick="" 
+            <button onclick="goToTaskScheduler()" 
                     class="btn-primary" 
                     style="background: linear-gradient(135deg, #FF4D6D 0%, #C9184A 100%) !important; 
                         color: white !important;
@@ -649,7 +722,7 @@
                         box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
                         flex: 1.5;
                         max-width: 400px;">
-                Manuthi
+                Smart Task Scheduler
             </button>
         </div>
         <!-- end of Buttons section -->
@@ -662,7 +735,7 @@
 
     <script src="app.js"></script>
 
-    <!-- Add this script at the bottom of index.html, before </body> -->
+    <!-- senuthi's js -->
     <script>
     function goToActivityRecommender() {
         // Get current stress score if available
@@ -681,8 +754,29 @@
     }
     </script>
 
+    <script>
+        function goToTaskScheduler() {
+        // Get current stress score if available
+        const scoreElement = document.getElementById('stressScore');
+        const levelElement = document.getElementById('levelBadge');
+        
+        console.log('📊 Navigating to Task Scheduler');
+        console.log('Score element:', scoreElement?.textContent);
+        console.log('Level element:', levelElement?.textContent);
+        
+        if (scoreElement && levelElement && scoreElement.textContent !== '0.0') {
+            // Pass stress data via URL parameters (same as activity recommender)
+            const stressScore = scoreElement.textContent.replace('/10', '').trim();
+            const stressLevel = levelElement.textContent.trim();
+            
+            console.log('✅ Passing stress data:', stressScore, stressLevel);
+            window.location.href = `/task-scheduler?stress_score=${stressScore}&stress_level=${stressLevel}`;
+        } else {
+            console.log('⚠️ No assessment data, navigating without parameters');
+            // No assessment yet, just go to the page
+            window.location.href = '/task-scheduler';
+        }
+    }
+    </script>
 </body>
 </html>
-
-
-

@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adaptive Task Scheduler - MindSoothe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .progress-steps {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .step {
+            padding: 10px 20px;
+            border-radius: 20px;
+            background: #e0e7ff;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .step.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .step.completed {
+            background: #10b981;
+            color: white;
+        }
+
+        .stress-indicator {
+            background: linear-gradient(to right, #10b981, #f59e0b, #ef4444);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            color: white;
+            text-align: center;
+        }
+
+        .stress-indicator h3 {
+            margin-bottom: 10px;
+            font-size: 1.5em;
+        }
+
+        .stress-indicator .stress-details {
+            font-size: 1.2em;
+            margin-top: 10px;
+        }
+
+        .stress-indicator .stress-score {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .stress-indicator.default {
+            background: linear-gradient(to right, #3b82f6, #8b5cf6);
+        }
+
+        .take-assessment-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .take-assessment-btn:hover {
+            background: #f0f4ff;
+        }
+
+        .routine-setup {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .day-routine {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #e0e7ff;
+        }
+
+        .day-routine h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .time-slot {
+            display: grid;
+            grid-template-columns: auto 20px auto 1fr auto;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 8px;
+        }
+
+        .time-slot input[type="time"],
+        .time-slot select {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .remove-slot {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .add-slot-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        .task-input-section {
+            background: #f0f4ff;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .task-form {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .task-form input,
+        .task-form select {
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .add-task-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .add-task-btn:hover {
+            background: #059669;
+        }
+
+        .add-task-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .tasks-list {
+            margin-top: 20px;
+        }
+
+        .task-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid #667eea;
+        }
+
+        .task-item.high {
+            border-left-color: #ef4444;
+        }
+
+        .task-item.medium {
+            border-left-color: #f59e0b;
+        }
+
+        .task-item.low {
+            border-left-color: #10b981;
+        }
+
+        .task-item.estimating {
+            opacity: 0.6;
+        }
+
+        .task-duration-badge {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 10px;
+            display: inline-block;
+        }
+
+        .ai-estimated {
+            background: #10b981;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            display: block;
+            margin: 30px auto;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+            color: #667eea;
+        }
+
+        .calendar-view {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .day-column {
+            background: #f8f9ff;
+            border-radius: 10px;
+            padding: 15px;
+            min-height: 500px;
+        }
+
+        .day-header {
+            font-weight: bold;
+            color: #667eea;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .schedule-slot {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+            font-size: 13px;
+        }
+
+        .export-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+
+        .info-box {
+            background: #dbeafe;
+            border: 2px solid #3b82f6;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .info-box h4 {
+            color: #1e40af;
+            margin-bottom: 8px;
+        }
+
+        .info-box ul {
+            margin-left: 20px;
+            color: #1e3a8a;
+        }
+
+        .estimation-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: #10b981;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗓️ Smart Task Scheduler</h1>
+        <p class="subtitle">AI-powered scheduling with automatic time estimation</p>
+
+        <div class="progress-steps">
+            <div class="step active" id="step1">1. Routine Setup</div>
+            <div class="step" id="step2">2. Add Tasks</div>
+            <div class="step" id="step3">3. View Schedule</div>
+        </div>
+
+        <!-- Stress Level Display -->
+        <div id="stressDisplay" style="display: none;">
+            <div class="stress-indicator" id="stressIndicator">
+                <h3>📊 Your Current Stress Level</h3>
+                <div class="stress-score" id="stressScore">-/10</div>
+                <div class="stress-details">
+                    <strong>Stress Level:</strong> <span id="stressLevel">Loading...</span>
+                </div>
+                <p id="stressExplanation" style="margin-top: 15px; font-size: 0.95em;"></p>
+                <a href="/" class="take-assessment-btn" id="reassessmentBtn" style="display: none;">
+                    📊 Update Stress Assessment
+                </a>
+            </div>
+        </div>
+
+        <!-- Step 1: Routine Setup -->
+        <div class="setup-section" id="routineSection">
+            <h2 style="color: #333; margin-bottom: 20px;">Step 1: Set Your Weekly Routine</h2>
+            <p style="margin-bottom: 20px; color: #666;">Select time slots for different activities throughout your week.</p>
+            
+            <div class="routine-setup" id="routineSetup"></div>
+            <button class="btn-primary" onclick="saveRoutine()">Save Routine & Continue →</button>
+        </div>
+
+        <!-- Step 2: Task Input -->
+        <div class="setup-section" id="taskSection" style="display: none;">
+            <h2 style="color: #333; margin-bottom: 20px;">Step 2: Add Tasks to Schedule</h2>
+            
+            <div class="info-box">
+                <h4>🤖 AI-Powered Duration Estimation</h4>
+                <p>Just enter your task name and deadline - our AI will automatically estimate how long each task will take based on:</p>
+                <ul>
+                    <li>Task complexity and type</li>
+                    <li>Your current stress level</li>
+                    <li>Preparation and buffer time needed</li>
+                </ul>
+            </div>
+
+            <div class="task-input-section">
+                <h3 style="margin-bottom: 15px;">Enter Your Tasks</h3>
+                <div class="task-form">
+                    <input type="text" id="taskName" placeholder="Task Name (e.g., 'Prepare presentation')" required>
+                    <select id="taskPriority">
+                        <option value="high">High Priority</option>
+                        <option value="medium">Medium Priority</option>
+                        <option value="low">Low Priority</option>
+                    </select>
+                    <input type="date" id="taskDeadline" placeholder="Deadline" required>
+                </div>
+                <button class="add-task-btn" onclick="addTask()" id="addTaskBtn">
+                    ➕ Add Task (AI will estimate duration)
+                </button>
+                <div class="tasks-list" id="tasksList"></div>
+            </div>
+            
+            <button class="btn-primary" onclick="generateSchedule()">🚀 Generate Smart Schedule</button>
+        </div>
+
+        <!-- Step 3: Schedule Display -->
+        <div class="schedule-section" id="scheduleSection" style="display: none;">
+            <h2 style="color: #333; margin-bottom: 20px;">Your Optimized Schedule</h2>
+            
+            <div style="text-align: center; margin-bottom: 20px;">
+                <button class="export-btn" onclick="exportToCalendar()">📅 Export to Calendar</button>
+                <button class="export-btn" onclick="printSchedule()">🖨️ Print Schedule</button>
+                <button class="export-btn" onclick="startOver()">🔄 Create New Schedule</button>
+            </div>
+            
+            <div id="warningsContainer"></div>
+            <div id="suggestionsContainer"></div>
+            
+            <div class="calendar-view" id="calendarView"></div>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            🤖 Generating your personalized schedule...<br>
+            <small>Analyzing stress levels and optimizing task placement...</small>
+        </div>
+    </div>
+
+    <script>
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        let tasks = [];
+        let weeklyRoutine = {};
+        let stressData = null;
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            loadStressLevel();
+            initRoutineSetup();
+            setMinDeadlineDate();
+        });
+
+        function setMinDeadlineDate() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('taskDeadline').min = today;
+        }
+
+        function loadStressLevel() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const score = urlParams.get('stress_score');
+            const level = urlParams.get('stress_level');
+
+            console.log('🔍 URL Parameters - Score:', score, 'Level:', level);
+
+            if (score && level && score !== '0.0') {
+                // Clean up the score if it has '/10' suffix
+                const cleanScore = score.replace('/10', '').trim();
+                stressData = {
+                    stress_score: parseFloat(cleanScore),
+                    stress_level: level.trim(),
+                    timestamp: new Date().toISOString(),
+                    isDefault: false
+                };
+                console.log('✅ Stress data loaded from URL:', stressData);
+                displayStressLevel();
+            } else {
+                console.log('⚠️ No valid URL parameters, trying API...');
+                fetchAndDisplayStressLevel();
+            }
+        }
+
+        async function fetchAndDisplayStressLevel() {
+            try {
+                const userResponse = await fetch('/api/current-user');
+                const userData = await userResponse.json();
+                
+                if (!userData.logged_in) {
+                    console.log('User not logged in, using default Medium stress');
+                    useDefaultStressLevel();
+                    return;
+                }
+
+                console.log('✅ User logged in:', userData.username);
+
+                const historyResponse = await fetch(`/api/history/${userData.user_id}`);
+                const historyData = await historyResponse.json();
+                
+                console.log('📊 History data:', historyData);
+
+                if (historyData.history && historyData.history.length > 0) {
+                    const latest = historyData.history[0];
+                    stressData = {
+                        stress_score: parseFloat(latest.stress_score),
+                        stress_level: latest.stress_level,
+                        timestamp: latest.timestamp,
+                        isDefault: false
+                    };
+
+                    console.log('✅ Stress data loaded:', stressData);
+                    displayStressLevel();
+                } else {
+                    console.log('⚠️ No stress history found, showing message');
+                    showNoAssessmentMessage();
+                }
+            } catch (error) {
+                console.error('❌ Error fetching stress level:', error);
+                useDefaultStressLevel();
+            }
+        }
+
+        function useDefaultStressLevel() {
+            stressData = {
+                stress_score: 5.0,
+                stress_level: 'Medium',
+                timestamp: new Date().toISOString(),
+                isDefault: true
+            };
+            console.log('📊 Using default Medium stress level');
+            displayStressLevel();
+        }
+
+        function displayStressLevel() {
+            if (!stressData) return;
+
+            document.getElementById('stressDisplay').style.display = 'block';
+            
+            const indicator = document.getElementById('stressIndicator');
+            indicator.className = 'stress-indicator';
+            
+            if (stressData.isDefault) {
+                indicator.classList.add('default');
+            }
+            
+            document.getElementById('stressScore').textContent = `${stressData.stress_score.toFixed(1)}/10`;
+            document.getElementById('stressLevel').textContent = stressData.stress_level;
+            
+            const explanations = {
+                'Low': 'Great! You\'re in a calm state. Your schedule will include standard work hours.',
+                'Medium': 'You\'re managing well. Your schedule will be balanced with appropriate breaks.',
+                'High': 'You\'re experiencing elevated stress. Your schedule will be lighter with more breaks.',
+                'Very High': 'Your stress is quite high. We\'ll create a gentle schedule with reduced workload.',
+                'Critical': 'You need immediate stress relief. Your schedule will prioritize self-care.'
+            };
+            
+            let explanationText = explanations[stressData.stress_level] || 'Your schedule will be optimized based on your stress level.';
+            
+            if (stressData.isDefault) {
+                explanationText = '📊 Using default Medium stress level. ' + explanationText;
+                document.getElementById('reassessmentBtn').style.display = 'inline-block';
+                document.getElementById('reassessmentBtn').textContent = '📊 Take Stress Assessment for Better Results';
+            } else {
+                document.getElementById('reassessmentBtn').style.display = 'inline-block';
+                document.getElementById('reassessmentBtn').textContent = '🔄 Update Stress Assessment';
+            }
+            
+            document.getElementById('stressExplanation').textContent = explanationText;
+        }
+
+        function showNoAssessmentMessage() {
+            document.getElementById('stressDisplay').innerHTML = `
+                <div class="stress-indicator default" style="text-align: center; padding: 40px;">
+                    <h3>📊 No Stress Assessment Found</h3>
+                    <p style="margin: 15px 0;">Please complete a stress assessment first to get a personalized schedule.</p>
+                    <a href="/" class="take-assessment-btn" style="display: inline-block; margin-top: 15px;">
+                        Take Assessment Now
+                    </a>
+                </div>
+            `;
+            document.getElementById('stressDisplay').style.display = 'block';
+        }
+
+        function initRoutineSetup() {
+            const container = document.getElementById('routineSetup');
+            container.innerHTML = '';
+            
+            days.forEach(day => {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'day-routine';
+                dayDiv.innerHTML = `
+                    <h3>${day}</h3>
+                    <div id="${day}-slots">
+                        <div class="time-slot">
+                            <input type="time" value="09:00">
+                            <span>-</span>
+                            <input type="time" value="12:00">
+                            <select>
+                                <option value="work">Work</option>
+                                <option value="hobby">Hobby</option>
+                                <option value="leisure">Leisure</option>
+                                <option value="exercise">Exercise</option>
+                                <option value="sleep">Sleep</option>
+                                <option value="blocked">Blocked</option>
+                            </select>
+                            <button class="remove-slot" onclick="removeSlot(this)" style="display:none;">×</button>
+                        </div>
+                    </div>
+                    <button class="add-slot-btn" onclick="addTimeSlot('${day}')">+ Add Time Slot</button>
+                `;
+                container.appendChild(dayDiv);
+            });
+        }
+
+        function addTimeSlot(day) {
+            const slotsDiv = document.getElementById(`${day}-slots`);
+            const slotDiv = document.createElement('div');
+            slotDiv.className = 'time-slot';
+            slotDiv.innerHTML = `
+                <input type="time" value="14:00">
+                <span>-</span>
+                <input type="time" value="17:00">
+                <select>
+                    <option value="work">Work</option>
+                    <option value="hobby">Hobby</option>
+                    <option value="leisure">Leisure</option>
+                    <option value="exercise">Exercise</option>
+                    <option value="sleep">Sleep</option>
+                    <option value="blocked">Blocked</option>
+                </select>
+                <button class="remove-slot" onclick="removeSlot(this)">×</button>
+            `;
+            slotsDiv.appendChild(slotDiv);
+        }
+
+        function removeSlot(button) {
+            button.parentElement.remove();
+        }
+
+        async function saveRoutine() {
+            weeklyRoutine = {};
+            days.forEach(day => {
+                const slots = document.querySelectorAll(`#${day}-slots .time-slot`);
+                weeklyRoutine[day] = [];
+                slots.forEach(slot => {
+                    const inputs = slot.querySelectorAll('input[type="time"]');
+                    const select = slot.querySelector('select');
+                    weeklyRoutine[day].push({
+                        start: inputs[0].value,
+                        end: inputs[1].value,
+                        type: select.value
+                    });
+                });
+            });
+
+            try {
+                const response = await fetch('/api/scheduler/save-routine', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ routine: weeklyRoutine })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    document.getElementById('step1').classList.add('completed');
+                    document.getElementById('step2').classList.add('active');
+                    document.getElementById('routineSection').style.display = 'none';
+                    document.getElementById('taskSection').style.display = 'block';
+                } else {
+                    alert('Error saving routine: ' + data.message);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function estimateTaskDuration(taskName, priority, deadline) {
+            try {
+                console.log('🤖 Estimating duration for:', taskName);
+                
+                const response = await fetch('/api/scheduler/estimate-duration', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        task_name: taskName,
+                        priority: priority,
+                        deadline: deadline,
+                        stress_level: stressData?.stress_level || 'Medium',
+                        stress_score: stressData?.stress_score || 5.0
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    console.log('✅ Duration estimated:', data.estimated_duration, 'hours');
+                    return data.estimated_duration;
+                } else {
+                    console.error('❌ Duration estimation failed:', data.message);
+                    return 2;
+                }
+            } catch (error) {
+                console.error('❌ Error estimating duration:', error);
+                return 2;
+            }
+        }
+
+        async function addTask() {
+            const name = document.getElementById('taskName').value;
+            const priority = document.getElementById('taskPriority').value;
+            const deadline = document.getElementById('taskDeadline').value;
+
+            if (!name || !deadline) {
+                alert('Please fill in task name and deadline');
+                return;
+            }
+
+            const taskId = Date.now();
+            const btn = document.getElementById('addTaskBtn');
+            btn.disabled = true;
+            btn.textContent = '🤖 AI is estimating duration...';
+
+            const task = {
+                id: taskId,
+                name,
+                priority,
+                deadline,
+                duration: 0,
+                estimating: true
+            };
+
+            tasks.push(task);
+            displayTasks();
+
+            const estimatedDuration = await estimateTaskDuration(name, priority, deadline);
+            
+            const taskIndex = tasks.findIndex(t => t.id === taskId);
+            if (taskIndex !== -1) {
+                tasks[taskIndex].duration = estimatedDuration;
+                tasks[taskIndex].estimating = false;
+                displayTasks();
+            }
+
+            document.getElementById('taskName').value = '';
+            document.getElementById('taskDeadline').value = '';
+            btn.disabled = false;
+            btn.textContent = '➕ Add Task (AI will estimate duration)';
+        }
+
+        function displayTasks() {
+            const container = document.getElementById('tasksList');
+            if (tasks.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#666;">No tasks added yet</p>';
+                return;
+            }
+            
+            container.innerHTML = tasks.map(task => `
+                <div class="task-item ${task.priority} ${task.estimating ? 'estimating' : ''}">
+                    <div class="task-info">
+                        <div class="task-name">
+                            ${task.name}
+                            ${task.estimating ? 
+                                '<span class="task-duration-badge">⏳ Estimating...</span>' : 
+                                `<span class="task-duration-badge ai-estimated">🤖 ${task.duration}h</span>`
+                            }
+                        </div>
+                        <div class="task-details">
+                            ${task.priority} priority • Due: ${new Date(task.deadline).toLocaleDateString()}
+                            ${!task.estimating ? '<div class="estimation-indicator">✨ AI-estimated duration with prep time</div>' : ''}
+                        </div>
+                    </div>
+                    <button class="remove-task" onclick="removeTask(${task.id})" ${task.estimating ? 'disabled' : ''}>
+                        ${task.estimating ? '⏳' : 'Remove'}
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function removeTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            displayTasks();
+        }
+
+        async function generateSchedule() {
+            if (tasks.length === 0) {
+                alert('Please add at least one task');
+                return;
+            }
+
+            if (tasks.some(t => t.estimating)) {
+                alert('⏳ Please wait for AI to finish estimating task durations');
+                return;
+            }
+
+            if (!stressData) {
+                console.log('No stress data, using default Medium');
+                useDefaultStressLevel();
+            }
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('taskSection').style.display = 'none';
+
+            const today = new Date();
+            const monday = new Date(today.setDate(today.getDate() - today.getDay() + 1));
+            const weekStart = monday.toISOString().split('T')[0];
+
+            try {
+                const response = await fetch('/api/scheduler/generate-schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tasks,
+                        week_start: weekStart,
+                        stress_score: stressData.stress_score,
+                        stress_level: stressData.stress_level,
+                        mood: 'neutral',
+                        is_default_stress: stressData.isDefault || false
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    document.getElementById('step2').classList.add('completed');
+                    document.getElementById('step3').classList.add('active');
+                    displaySchedule(data.schedule);
+                } else {
+                    alert('Error generating schedule: ' + data.message);
+                    document.getElementById('taskSection').style.display = 'block';
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+                document.getElementById('taskSection').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function displaySchedule(scheduleData) {
+            document.getElementById('scheduleSection').style.display = 'block';
+
+            if (scheduleData.warnings && scheduleData.warnings.length > 0) {
+                document.getElementById('warningsContainer').innerHTML = `
+                    <div style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 10px; padding: 20px; margin: 20px 0;">
+                        <h3 style="color: #d97706; margin-bottom: 10px;">⚠️ Scheduling Warnings</h3>
+                        ${scheduleData.warnings.map(w => `<div style="padding: 8px; margin: 5px 0; color: #92400e;">• ${w}</div>`).join('')}
+                    </div>
+                `;
+            }
+
+            if (scheduleData.suggestions && scheduleData.suggestions.length > 0) {
+                document.getElementById('suggestionsContainer').innerHTML = `
+                    <div style="background: #dbeafe; border: 2px solid #3b82f6; border-radius: 10px; padding: 20px; margin: 20px 0;">
+                        <h3 style="color: #1e40af; margin-bottom: 10px;">💡 Optimization Suggestions</h3>
+                        ${scheduleData.suggestions.map(s => `<div style="padding: 8px; margin: 5px 0;">• ${s}</div>`).join('')}
+                    </div>
+                `;
+            }
+
+            const calendar = document.getElementById('calendarView');
+            calendar.innerHTML = scheduleData.schedule.map(day => `
+                <div class="day-column">
+                    <div class="day-header">
+                        <div>${day.day}</div>
+                        <div style="font-size: 12px; font-weight: normal;">${day.date}</div>
+                    </div>
+                    ${day.slots.map(slot => `
+                        <div class="schedule-slot">
+                            <div style="font-weight: bold; color: #333; margin-bottom: 5px;">${slot.time}</div>
+                            <div style="color: #666; margin-bottom: 5px;"><strong>${slot.task}</strong></div>
+                            <div style="font-size: 11px; color: #888;">${slot.priority} priority</div>
+                            ${slot.deadline ? `<div style="font-size: 11px; color: #ef4444; margin-top: 2px;">📅 Due: ${slot.deadline}</div>` : ''}
+                            ${slot.notes ? `<div style="font-size: 11px; color: #666; margin-top: 5px;">💭 ${slot.notes}</div>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `).join('');
+        }
+
+        async function exportToCalendar() {
+            try {
+                const response = await fetch('/api/scheduler/get-schedule');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    const exportResponse = await fetch('/api/scheduler/export-calendar', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ schedule: data.schedule })
+                    });
+                    
+                    const exportData = await exportResponse.json();
+                    
+                    if (exportData.status === 'success') {
+                        const blob = new Blob([exportData.ical_data], { type: 'text/calendar' });
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = exportData.filename;
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                    }
+                }
+            } catch (error) {
+                alert('Error exporting calendar: ' + error.message);
+            }
+        }
+
+        function printSchedule() {
+            window.print();
+        }
+
+        function startOver() {
+            if (confirm('Are you sure you want to create a new schedule?')) {
+                tasks = [];
+                document.getElementById('step1').classList.remove('completed');
+                document.getElementById('step2').classList.remove('completed', 'active');
+                document.getElementById('step3').classList.remove('active');
+                document.getElementById('step1').classList.add('active');
+                document.getElementById('scheduleSection').style.display = 'none';
+                document.getElementById('routineSection').style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
