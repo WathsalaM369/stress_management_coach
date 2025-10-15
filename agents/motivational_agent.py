@@ -273,7 +273,7 @@ class MotivationalAgent:
                 "However dark it seems, I'm here holding the light for you "
             ],
             "Chronic High": [
-                "You've been carrying this for so long, and you're still here. That's incredible strength🌄",
+                "You've been carrying this for so long, and you're still here. That's incredible strength",
                 "Day after day, you keep showing up. I see your courage and I'm in awe ",
                 "However tired you are, however much it hurts - I see you, and I'm not going anywhere ",
                 "Your resilience through ongoing challenges is truly remarkable",
