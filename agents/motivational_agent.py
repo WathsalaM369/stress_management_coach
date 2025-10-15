@@ -245,46 +245,46 @@ class MotivationalAgent:
         """Get a fallback motivational message based on stress category"""
         fallback_messages = {
             "Low": [
-                "You're doing amazing! Keep shining 🌟",
-                "So proud of you for taking care of yourself! 💫",
-                "You've got this! Your energy is inspiring ✨",
-                "Every small step counts - you're making progress! 🌈",
-                "Your positive energy is contagious! Keep going! 🎯"
+                "You're doing amazing! Keep shining ",
+                "So proud of you for taking care of yourself! ",
+                "You've got this! Your energy is inspiring ",
+                "Every small step counts - you're making a good progress! ",
+                "Your positive energy is contagious! Keep going! "
             ],
             "Medium": [
-                "I see you working through this. You're stronger than you think 💪",
-                "One step at a time, one breath at a time. You've got this 🌈",
-                "This is tough, but you're tougher. I believe in you! 💖",
-                "Progress isn't always linear - you're doing better than you think! 🌟",
-                "You're navigating challenges with such grace and strength! ✨"
+                "I see you working through this. You're stronger than you think ",
+                "One step at a time, one breath at a time. You've got this ",
+                "This is tough, but you're tougher. I believe in you! ",
+                "Progress isn't always linear - you're doing better than you think! ",
+                "You're navigating challenges with such grace and strength! "
             ],
             "High": [
-                "I'm right here with you. However you feel is completely okay 🫂",
-                "Just breathe. However you need to get through this moment is enough 💗",
-                "You don't have to carry this alone. I'm sitting with you in this 🌙",
-                "It's okay to not be okay. I'm here with you through this 🕊️",
-                "This moment is tough, but you're tougher. I believe in your strength! 💫"
+                "I'm right here with you. However you feel is completely okay🫂",
+                "Just breathe. However you need to get through this moment is enough💗",
+                "You don't have to carry this alone. I'm sitting with you in this ",
+                "It's okay to not be okay. I'm here with you through this ",
+                "This moment is tough, but you're tougher. I believe in your strength!💫"
             ],
             "Very High": [
-                "However heavy this feels, you're not alone. I'm here with you 🕊️",
-                "Just keep breathing. However you're surviving right now is brave 💫",
-                "No words needed. I'm just here, holding space for you 🌌",
-                "You're weathering the storm with incredible courage 🌊",
-                "However dark it seems, I'm here holding the light for you 🕯️"
+                "However heavy this feels, you're not alone. I'm here with you ",
+                "Just keep breathing. However you're surviving right now is brave💫",
+                "No words needed. I'm just here, holding space for you ",
+                "You're weathering the storm with incredible courage ",
+                "However dark it seems, I'm here holding the light for you "
             ],
             "Chronic High": [
-                "You've been carrying this for so long, and you're still here. That's incredible strength 🌄",
-                "Day after day, you keep showing up. I see your courage and I'm in awe 💖",
-                "However tired you are, however much it hurts - I see you, and I'm not going anywhere 🌟",
-                "Your resilience through ongoing challenges is truly remarkable 🏔️",
-                "Through all the difficult days, you continue to show such strength 💎"
+                "You've been carrying this for so long, and you're still here. That's incredible strength🌄",
+                "Day after day, you keep showing up. I see your courage and I'm in awe ",
+                "However tired you are, however much it hurts - I see you, and I'm not going anywhere ",
+                "Your resilience through ongoing challenges is truly remarkable",
+                "Through all the difficult days, you continue to show such strength "
             ],
             "default": [
-                "I'm here for you. Take a deep breath. You've got this. 💫",
-                "You're not alone in this. I'm right here with you. 🤝",
-                "However you're feeling right now is valid. I'm listening. 🌿",
-                "You're doing the best you can, and that's always enough. 🌟",
-                "I believe in you and your ability to get through this. 💖"
+                "I'm here for you. Take a deep breath. You've got this. ",
+                "You're not alone in this. I'm right here with you.",
+                "However you're feeling right now is valid. I'm listening. ",
+                "You're doing the best you can, and that's always enough. ",
+                "I believe in you and your ability to get through this. "
             ]
         }
         
