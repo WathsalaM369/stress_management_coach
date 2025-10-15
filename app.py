@@ -3,6 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 import uvicorn
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Try to import the stress estimator with multiple fallbacks
 try:
@@ -61,7 +66,6 @@ except ImportError:
 from agents.motivational_agent import motivational_agent, MotivationRequest
 from config import Config
 from datetime import datetime, timedelta
-import os
 import secrets
 import hashlib
 import json
@@ -89,17 +93,32 @@ flask_app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 # Enhanced CORS with Gemini support for Flask
 CORS(flask_app, supports_credentials=True, origins=['http://localhost:3000', 'http://localhost:5001'])
 
-# Initialize stress estimator with Gemini for Flask
+# ==================== ENHANCED LLM CONFIGURATION ====================
+# Debug: Check environment variables
+print("🔍 ENVIRONMENT VARIABLES CHECK:")
+print(f"USE_LLM: {os.getenv('USE_LLM')}")
+print(f"LLM_PROVIDER: {os.getenv('LLM_PROVIDER')}")
+print(f"GOOGLE_API_KEY exists: {bool(os.getenv('GOOGLE_API_KEY'))}")
+
+# Initialize stress estimator with enhanced Gemini configuration
 use_llm = os.getenv('USE_LLM', 'true').lower() == 'true'
-print(f"🔧 LLM Mode: {use_llm}")
+api_key = os.getenv('GOOGLE_API_KEY')
 
-if use_llm:
-    api_key = os.getenv('GOOGLE_API_KEY')
-    if not api_key or api_key == 'your_actual_google_api_key_here':
-        print("❌ No valid Google API key found. Disabling LLM.")
+# Enhanced API key validation
+if use_llm and api_key:
+    # Check if it's a valid key (not placeholder)
+    if api_key.startswith('AIza') and len(api_key) > 30:
+        print("✅ Valid Google API key detected!")
+    else:
+        print("❌ Invalid Google API key format. Disabling LLM.")
         use_llm = False
+else:
+    print("❌ No Google API key found. Disabling LLM.")
+    use_llm = False
 
-# Initialize the stress estimator
+print(f"🔧 Final LLM Mode: {use_llm}")
+
+# Initialize the stress estimator with correct LLM setting
 flask_estimator = StressEstimator(use_database=True, use_llm=use_llm)
 
 # In-memory user store (in production, use a real database)
@@ -258,6 +277,7 @@ def analyze_mood():
         
         print(f"🔍 Analyzing data for user: {user_id}")
         print(f"📊 Data type: {data.get('input_method')}")
+        print(f"🧠 LLM Enabled: {flask_estimator.use_llm}")
         
         if is_duplicate_request(user_id, data):
             print("🔄 Duplicate request detected, skipping...")
@@ -289,6 +309,7 @@ def analyze_comprehensive():
         user_id = get_current_user_id()
         
         print(f"🧠 Comprehensive analysis for user: {user_id}")
+        print(f"🧠 LLM Enabled: {flask_estimator.use_llm}")
         
         # Prepare data for analysis
         analysis_data = {

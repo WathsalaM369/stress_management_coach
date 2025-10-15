@@ -34,6 +34,7 @@ class MotivationalAgent:
     def __init__(self, use_gemini=True):
         self.use_gemini = use_gemini
         self.gemini_client = None
+        self.gemini_available = False  # Track if Gemini is actually available
         self.audio_files = {}
         self.current_audio_path = None
         
@@ -46,6 +47,7 @@ class MotivationalAgent:
             self.gemini_client = self._setup_gemini()
         
         print("✅ Motivational Agent Ready!")
+        print(f"🤖 Gemini Status: {'Available' if self.gemini_available else 'Using Fallback Messages'}")
     
     def _test_system_dependencies(self):
         """Test and install missing dependencies"""
@@ -86,7 +88,7 @@ class MotivationalAgent:
         return True
     
     def _setup_gemini(self):
-        """Setup Gemini client"""
+        """Setup Gemini client with quota and error handling"""
         try:
             load_dotenv()
             api_key = os.getenv('GOOGLE_API_KEY')
@@ -94,28 +96,83 @@ class MotivationalAgent:
             if not api_key or api_key == 'your_actual_google_api_key_here':
                 print("❌ GOOGLE_API_KEY not found in .env file")
                 print("💡 Create a .env file with: GOOGLE_API_KEY=your_actual_key_here")
+                self.gemini_available = False
                 return None
             
             import google.generativeai as genai
             genai.configure(api_key=api_key)
             
-            model = genai.GenerativeModel('models/gemini-1.5-flash')
+            print("🔍 Checking Gemini availability...")
             
-            # Quick test
-            response = model.generate_content("Say 'READY'")
-            print("✅ Gemini AI connected successfully")
-            return model
+            try:
+                # List available models
+                available_models = genai.list_models()
+                model_names = []
+                
+                for model in available_models:
+                    if 'generateContent' in model.supported_generation_methods:
+                        model_names.append(model.name)
+                        print(f"📋 Available: {model.name}")
+                
+                if not model_names:
+                    print("❌ No models support generateContent method")
+                    self.gemini_available = False
+                    return None
+                
+                # Try the first available model with a quota check
+                first_model = model_names[0].split('/')[-1]
+                print(f"🔧 Trying model: {first_model}")
+                
+                model = genai.GenerativeModel(first_model)
+                
+                # Quick test with timeout and quota handling
+                try:
+                    response = model.generate_content(
+                        "Say 'READY' in one word only.",
+                        request_options={'timeout': 10}  # 10 second timeout
+                    )
+                    
+                    if response.text and 'READY' in response.text.upper():
+                        print(f"✅ Gemini connected successfully: {first_model}")
+                        self.gemini_available = True
+                        return model
+                    else:
+                        print(f"❌ Model test failed: {response.text}")
+                        self.gemini_available = False
+                        return None
+                        
+                except Exception as test_error:
+                    if "quota" in str(test_error).lower() or "429" in str(test_error):
+                        print("❌ Gemini quota exceeded - using fallback messages")
+                        self.gemini_available = False
+                        return None
+                    else:
+                        print(f"❌ Gemini test failed: {test_error}")
+                        self.gemini_available = False
+                        return None
+                
+            except Exception as list_error:
+                if "quota" in str(list_error).lower() or "429" in str(list_error):
+                    print("❌ Gemini quota exceeded - using fallback messages")
+                    self.gemini_available = False
+                    return None
+                else:
+                    print(f"❌ Could not list models: {list_error}")
+                    self.gemini_available = False
+                    return None
             
         except Exception as e:
             print(f"❌ Gemini setup failed: {e}")
+            self.gemini_available = False
             return None
     
     def generate_motivation(self, request: MotivationRequest) -> MotivationResponse:
         """
-        Generate motivational message and audio - SIMPLE & RELIABLE
+        Generate motivational message and audio - RELIABLE with quota handling
         """
         try:
             print(f"🎯 Generating motivation (Stress: {request.stress_level}, Voice: {request.voice_gender})")
+            print(f"🤖 Gemini Available: {self.gemini_available}")
             
             # Generate motivational text
             motivational_text = self._generate_motivational_text(request)
@@ -134,7 +191,7 @@ class MotivationalAgent:
             )
             
         except Exception as e:
-            print(f"❌ Error: {e}")
+            print(f"❌ Error in generate_motivation: {e}")
             return MotivationResponse(
                 motivational_message="I'm here for you. Take a deep breath. You've got this. 💫",
                 success=False,
@@ -142,10 +199,10 @@ class MotivationalAgent:
             )
     
     def _generate_motivational_text(self, request: MotivationRequest) -> str:
-        """Generate motivational text using Gemini or fallback"""
+        """Generate motivational text using Gemini or fallback with quota handling"""
         
-        # Try Gemini first
-        if self.use_gemini and self.gemini_client:
+        # Try Gemini only if available and not quota exceeded
+        if self.gemini_available and self.gemini_client:
             try:
                 prompt = f"""
                 Create a supportive, compassionate message for someone with {request.stress_level}/10 stress.
@@ -158,49 +215,83 @@ class MotivationalAgent:
                 - Sound like a caring friend
                 """
                 
-                response = self.gemini_client.generate_content(prompt)
+                # Add timeout and error handling for quota issues
+                response = self.gemini_client.generate_content(
+                    prompt,
+                    request_options={'timeout': 15}
+                )
+                
                 text = response.text.strip()
                 
                 if len(text) > 10:
                     print("✅ Generated with Gemini")
                     return text
+                else:
+                    print("❌ Gemini returned short response, using fallback")
+                    return self._get_fallback_message(request.stress_category)
                     
             except Exception as e:
+                if "quota" in str(e).lower() or "429" in str(e):
+                    print("❌ Gemini quota exceeded - switching to fallback permanently")
+                    self.gemini_available = False  # Permanently disable Gemini
+                
                 print(f"❌ Gemini generation failed: {e}")
+                return self._get_fallback_message(request.stress_category)
         
-        # Fallback messages
+        # Use fallback messages (always reliable)
+        return self._get_fallback_message(request.stress_category)
+    
+    def _get_fallback_message(self, stress_category: str) -> str:
+        """Get a fallback motivational message based on stress category"""
         fallback_messages = {
             "Low": [
                 "You're doing amazing! Keep shining 🌟",
                 "So proud of you for taking care of yourself! 💫",
-                "You've got this! Your energy is inspiring ✨"
+                "You've got this! Your energy is inspiring ✨",
+                "Every small step counts - you're making progress! 🌈",
+                "Your positive energy is contagious! Keep going! 🎯"
             ],
             "Medium": [
                 "I see you working through this. You're stronger than you think 💪",
                 "One step at a time, one breath at a time. You've got this 🌈",
-                "This is tough, but you're tougher. I believe in you! 💖"
+                "This is tough, but you're tougher. I believe in you! 💖",
+                "Progress isn't always linear - you're doing better than you think! 🌟",
+                "You're navigating challenges with such grace and strength! ✨"
             ],
             "High": [
                 "I'm right here with you. However you feel is completely okay 🫂",
                 "Just breathe. However you need to get through this moment is enough 💗",
-                "You don't have to carry this alone. I'm sitting with you in this 🌙"
+                "You don't have to carry this alone. I'm sitting with you in this 🌙",
+                "It's okay to not be okay. I'm here with you through this 🕊️",
+                "This moment is tough, but you're tougher. I believe in your strength! 💫"
             ],
             "Very High": [
                 "However heavy this feels, you're not alone. I'm here with you 🕊️",
                 "Just keep breathing. However you're surviving right now is brave 💫",
-                "No words needed. I'm just here, holding space for you 🌌"
+                "No words needed. I'm just here, holding space for you 🌌",
+                "You're weathering the storm with incredible courage 🌊",
+                "However dark it seems, I'm here holding the light for you 🕯️"
             ],
             "Chronic High": [
                 "You've been carrying this for so long, and you're still here. That's incredible strength 🌄",
                 "Day after day, you keep showing up. I see your courage and I'm in awe 💖",
-                "However tired you are, however much it hurts - I see you, and I'm not going anywhere 🌟"
+                "However tired you are, however much it hurts - I see you, and I'm not going anywhere 🌟",
+                "Your resilience through ongoing challenges is truly remarkable 🏔️",
+                "Through all the difficult days, you continue to show such strength 💎"
+            ],
+            "default": [
+                "I'm here for you. Take a deep breath. You've got this. 💫",
+                "You're not alone in this. I'm right here with you. 🤝",
+                "However you're feeling right now is valid. I'm listening. 🌿",
+                "You're doing the best you can, and that's always enough. 🌟",
+                "I believe in you and your ability to get through this. 💖"
             ]
         }
         
         import random
-        messages = fallback_messages.get(request.stress_category, fallback_messages["Medium"])
+        messages = fallback_messages.get(stress_category, fallback_messages["default"])
         selected = random.choice(messages)
-        print("✅ Using fallback message")
+        print("✅ Using carefully crafted fallback message")
         return selected
     
     def _generate_audio_simple(self, text: str, voice_gender: str) -> str:
