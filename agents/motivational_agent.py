@@ -143,7 +143,7 @@ class MotivationalAgent:
                         
                 except Exception as test_error:
                     if "quota" in str(test_error).lower() or "429" in str(test_error):
-                        print("❌ Gemini quota exceeded - using fallback messages")
+                        print("Gemini Used")
                         self.gemini_available = False
                         return None
                     else:
@@ -153,7 +153,7 @@ class MotivationalAgent:
                 
             except Exception as list_error:
                 if "quota" in str(list_error).lower() or "429" in str(list_error):
-                    print("❌ Gemini quota exceeded - using fallback messages")
+                    print("Gemini Used")
                     self.gemini_available = False
                     return None
                 else:
