@@ -4,6 +4,14 @@ from flask import Flask, request, jsonify, send_from_directory, session
 from flask import Flask, request, jsonify, render_template, redirect, url_for, send_from_directory, session
 from flask_cors import CORS
 import uvicorn
+from flask import send_file, send_from_directory
+import os
+from io import BytesIO
+from flask import send_file
+import google.generativeai as genai
+from io import BytesIO
+#import tempfile
+import uuid
 
 # Try to import the stress estimator with multiple fallbacks
 try:
@@ -1753,38 +1761,55 @@ def generate_motivation_from_stress(stress_result, user_message=""):
 
 @flask_app.route('/api/generate-motivation', methods=['POST'])
 def generate_motivation_api():
-    """Generate motivation from stress level"""
+    """Generate motivation from stress level - IN-MEMORY AUDIO VERSION"""
     try:
         data = request.get_json()
         
         print(f"🎯 Generating motivation for stress level: {data.get('stress_level')}")
         
+        stress_level = data.get('stress_level', 5.0)
+        stress_category = data.get('stress_category', 'Medium')
+        user_message = data.get('user_message', '')
+        voice_gender = data.get('voice_gender', 'female')
+        
         motivation_request = MotivationRequest(
-            stress_level=data.get('stress_level', 5.0),
-            stress_category=data.get('stress_category', 'Medium'),
-            user_message=data.get('user_message', ''),
-            generate_audio=data.get('generate_audio', True)
+            stress_level=stress_level,
+            stress_category=stress_category,
+            user_message=user_message,
+            generate_audio=False  # Don't use file-based audio
         )
         
         response = motivational_agent.generate_motivation(motivation_request)
         
+        # Generate audio in memory if requested
+        audio_url = None
+        if data.get('generate_audio'):
+            audio_id = generate_audio_in_memory(
+                text=response.motivational_message,
+                stress_category=stress_category,
+                voice_gender=voice_gender
+            )
+            audio_url = f'/api/audio-stream/{audio_id}'
+            
+            # Cleanup if cache gets too large
+            cleanup_audio_cache(max_size=10)
+        
         result = {
             "success": response.success,
             "motivational_message": response.motivational_message,
-            "audio_file_path": response.audio_file_path,
-            "stress_level": data.get('stress_level'),
-            "stress_category": data.get('stress_category')
+            "audio_file_path": audio_url,  # Returns URL, not file path
+            "stress_level": stress_level,
+            "stress_category": stress_category,
+            "voice_used": voice_gender
         }
-        
-        # Play audio if generated and requested
-        if response.audio_file_path and data.get('play_audio', True):
-            motivational_agent.play_audio(response.audio_file_path)
         
         print("✅ Motivation generated successfully")
         return jsonify(result)
         
     except Exception as e:
         print(f"❌ Error generating motivation: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 @flask_app.route('/api/play-audio', methods=['POST'])
@@ -1866,6 +1891,138 @@ def analyze_mood_with_motivation():
     except Exception as e:
         print(f"❌ Error in mood analysis with motivation: {str(e)}")
         return jsonify({"error": str(e)}), 500
+    
+
+# # Add this route to serve audio files
+# @flask_app.route('/api/audio/<filename>', methods=['GET'])
+# def serve_audio(filename):
+#     """Serve audio files for playback"""
+#     # Security: only allow alphanumeric and underscores
+#     if not all(c.isalnum() or c in '._-' for c in filename):
+#         return {'error': 'Invalid filename'}, 400
+    
+#     audio_dir = os.path.join(tempfile.gettempdir(), 'stress_relief_audio')
+#     audio_path = os.path.join(audio_dir, filename)
+    
+#     # Make sure file exists and is within the audio directory
+#     if not os.path.exists(audio_path) or not os.path.abspath(audio_path).startswith(os.path.abspath(audio_dir)):
+#         return {'error': 'Audio file not found'}, 404
+    
+#     try:
+#         return send_file(audio_path, mimetype='audio/mpeg')
+#     except Exception as e:
+#         print(f"Error serving audio: {e}")
+#         return {'error': 'Failed to serve audio'}, 500
+    
+# @flask_app.route('/api/audio/<filename>', methods=['GET'])
+# def serve_audio(filename):
+#     """Serve audio files for playback"""
+#     print(f"🎵 Audio request received for: {filename}")
+    
+#     # Security: only allow alphanumeric and underscores
+#     if not all(c.isalnum() or c in '._-' for c in filename):
+#         print(f"❌ Invalid filename: {filename}")
+#         return {'error': 'Invalid filename'}, 400
+    
+#     audio_dir = os.path.join(tempfile.gettempdir(), 'stress_relief_audio')
+#     audio_path = os.path.join(audio_dir, filename)
+    
+#     print(f"📁 Looking for audio at: {audio_path}")
+#     print(f"📁 File exists: {os.path.exists(audio_path)}")
+    
+#     # Make sure file exists and is within the audio directory
+#     if not os.path.exists(audio_path):
+#         print(f"❌ File not found: {audio_path}")
+#         return {'error': 'Audio file not found'}, 404
+    
+#     try:
+#         print(f"✅ Serving audio file: {filename}")
+#         return send_file(audio_path, mimetype='audio/mpeg')
+#     except Exception as e:
+#         print(f"❌ Error serving audio: {e}")
+#         return {'error': 'Failed to serve audio'}, 500
+    
+#Vinusha's motivtion add by senu
+
+# In-memory audio cache (session-based, cleared on restart)
+audio_cache = {}
+
+def generate_audio_in_memory(text, stress_category, voice_gender):
+    """Generate audio in memory using gTTS and return cache ID"""
+    try:
+        from gtts import gTTS
+        
+        # Create unique audio ID
+        audio_id = str(uuid.uuid4())
+        
+        # Slower speech for high stress
+        slow = stress_category in ["High", "Very High", "Chronic High"]
+        
+        print(f"🎵 Generating audio in memory for ID: {audio_id}")
+        
+        # Generate MP3 in memory
+        tts = gTTS(
+            text=text,
+            lang='en',
+            slow=slow,
+            lang_check=False
+        )
+        
+        # Save to BytesIO instead of disk
+        audio_buffer = BytesIO()
+        tts.write_to_fp(audio_buffer)
+        audio_buffer.seek(0)  # Reset pointer to start
+        
+        # Cache the audio buffer
+        audio_cache[audio_id] = audio_buffer.getvalue()
+        
+        print(f"✅ Audio generated in memory: {audio_id} ({len(audio_cache[audio_id])} bytes)")
+        
+        return audio_id
+        
+    except Exception as e:
+        print(f"❌ Error generating audio: {e}")
+        raise
+
+@flask_app.route('/api/audio-stream/<audio_id>', methods=['GET'])
+def stream_audio(audio_id):
+    """Stream audio from memory cache"""
+    try:
+        print(f"🎵 Audio stream request: {audio_id}")
+        
+        if audio_id not in audio_cache:
+            print(f"❌ Audio not found in cache: {audio_id}")
+            return {'error': 'Audio not found'}, 404
+        
+        audio_data = audio_cache[audio_id]
+        
+        # Create BytesIO object from cached data
+        audio_buffer = BytesIO(audio_data)
+        
+        print(f"✅ Streaming audio: {audio_id} ({len(audio_data)} bytes)")
+        
+        return send_file(
+            audio_buffer,
+            mimetype='audio/mpeg',
+            as_attachment=False,
+            download_name=f'motivation_{audio_id}.mp3'
+        )
+        
+    except Exception as e:
+        print(f"❌ Error streaming audio: {e}")
+        return {'error': str(e)}, 500
+
+def cleanup_audio_cache(max_size=10):
+    """Keep only the last N audio files in memory"""
+    global audio_cache
+    if len(audio_cache) > max_size:
+        # Remove oldest entries (keep newest)
+        keys_to_remove = list(audio_cache.keys())[:-max_size]
+        for key in keys_to_remove:
+            del audio_cache[key]
+        print(f"🧹 Cleaned up audio cache. Remaining: {len(audio_cache)}")
+
+
 
 # ==================== RUN APPLICATIONS ====================
 

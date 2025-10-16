@@ -1435,6 +1435,7 @@ window.debugAuth = function() {
 //Vinusha
 // Motivation functionality
 let currentMotivationData = null;
+let audioElement = null;
 let isAudioPlaying = false;
 
 function showMotivationPage() {
@@ -1505,43 +1506,155 @@ async function generateMotivationalMessage(stressScore, stressLevel) {
 }
 
 async function toggleAudio() {
-    if (!currentMotivationData || !currentMotivationData.audio_file_path) return;
-    
+    if (!currentMotivationData || !currentMotivationData.audio_file_path) {
+        console.log("No audio file available");
+        return;
+    }
+
+    initAudioElement();
+
     const playButton = document.getElementById('playButton');
+    const playIcon = document.getElementById('playIcon');
     const playText = document.getElementById('playText');
-    const audioWave = document.getElementById('audioWave');
-    
+
     if (!isAudioPlaying) {
-        // Start playing
-        playButton.classList.add('playing');
-        playText.textContent = 'Playing...';
-        isAudioPlaying = true;
-        
+        // PLAY
         try {
-            const response = await fetch('/api/play-audio', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    audio_path: currentMotivationData.audio_file_path
-                })
-            });
+            console.log("Playing audio:", currentMotivationData.audio_file_path);
             
-            const result = await response.json();
-            
-            if (result.success) {
-                // Simulate audio visualization
-                animateAudioWave(audioWave);
+            // Set the audio source if it changed
+            if (audioElement.src !== currentMotivationData.audio_file_path) {
+                audioElement.src = currentMotivationData.audio_file_path;
             }
+
+            // Play the audio
+            await audioElement.play();
+            isAudioPlaying = true;
+
+            // Update UI
+            playIcon.textContent = '⏸️';
+            playText.textContent = 'Pause';
+            playButton.classList.add('playing');
+
         } catch (error) {
             console.error('Error playing audio:', error);
+            alert('Could not play audio. Please try again.');
+            isAudioPlaying = false;
+            resetAudioControls();
         }
-        
+
     } else {
-        // Stop playing (simulated - you might need actual audio control)
-        resetAudioControls();
+        // PAUSE
+        audioElement.pause();
+        isAudioPlaying = false;
+
+        // Update UI
+        playIcon.textContent = '▶️';
+        playText.textContent = 'Play Message';
+        playButton.classList.remove('playing');
     }
+}
+
+function initAudioElement() {
+    if (!audioElement) {
+        audioElement = new Audio();
+        audioElement.addEventListener('ended', () => {
+            isAudioPlaying = false;
+            resetAudioControls();
+        });
+        audioElement.addEventListener('play', () => {
+            isAudioPlaying = true;
+            updatePlayButtonUI();
+        });
+        audioElement.addEventListener('pause', () => {
+            isAudioPlaying = false;
+            updatePlayButtonUI();
+        });
+        audioElement.addEventListener('timeupdate', updateProgressBar);
+        audioElement.addEventListener('loadedmetadata', updateDuration);
+    }
+}
+
+function updatePlayButtonUI() {
+    const playButton = document.getElementById('playButton');
+    const playIcon = document.getElementById('playIcon');
+    const playText = document.getElementById('playText');
+
+    if (isAudioPlaying) {
+        playIcon.textContent = '⏸️';
+        playText.textContent = 'Pause';
+        playButton.classList.add('playing');
+    } else {
+        playIcon.textContent = '▶️';
+        playText.textContent = 'Play Message';
+        playButton.classList.remove('playing');
+    }
+}
+
+function updateProgressBar() {
+    if (!audioElement || !audioElement.duration) return;
+
+    const progressBarFill = document.getElementById('progressBarFill');
+    const progressBarHandle = document.getElementById('progressBarHandle');
+    const currentTimeEl = document.getElementById('currentTime');
+
+    const percentage = (audioElement.currentTime / audioElement.duration) * 100;
+
+    if (progressBarFill) progressBarFill.style.width = percentage + '%';
+    if (progressBarHandle) progressBarHandle.style.left = percentage + '%';
+    if (currentTimeEl) currentTimeEl.textContent = formatTime(audioElement.currentTime);
+}
+
+function updateDuration() {
+    const durationEl = document.getElementById('durationTime');
+    if (durationEl && audioElement && audioElement.duration) {
+        durationEl.textContent = formatTime(audioElement.duration);
+    }
+}
+
+function formatTime(seconds) {
+    if (isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
+function enableAudioPlayback(audioUrl) {
+    console.log("🎵 Enabling audio playback for:", audioUrl);
+    
+    // Ensure audio element exists
+    initAudioElement();
+    
+    // Update the audio element's source
+    audioElement.src = audioUrl;
+    console.log("📝 Audio element src set to:", audioElement.src);
+    
+    // Store in currentMotivationData
+    currentMotivationData = currentMotivationData || {};
+    currentMotivationData.audio_file_path = audioUrl;
+
+    const playButton = document.getElementById('playButton');
+    if (playButton) {
+        playButton.disabled = false;
+        console.log("✅ Play button enabled");
+    }
+
+    resetAudioControls();
+}
+
+function setupProgressBarClick() {
+    const progressBarContainer = document.getElementById('progressBarContainer');
+    
+    if (!progressBarContainer) return;
+
+    progressBarContainer.addEventListener('click', (e) => {
+        if (!audioElement || !audioElement.duration) return;
+
+        const rect = progressBarContainer.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const percentage = clickX / rect.width;
+        audioElement.currentTime = percentage * audioElement.duration;
+    });
 }
 
 function animateAudioWave(audioWave) {
@@ -1564,9 +1677,9 @@ function resetAudioControls() {
     const playText = document.getElementById('playText');
     const audioWave = document.getElementById('audioWave');
     
-    playButton.classList.remove('playing');
-    playText.textContent = 'Listen to Message';
-    audioWave.style.width = '0%';
+    if (playButton) playButton.classList.remove('playing');
+    if (playText) playText.textContent = 'Play Message';
+    if (audioWave) audioWave.style.width = '0%';  // Only set if element exists
     isAudioPlaying = false;
 }
 
@@ -1599,10 +1712,97 @@ function saveMotivation() {
     }
 }
 
-function generateNewMotivation() {
-    const stressScore = parseFloat(document.getElementById('motivationStressLevel').textContent);
-    const stressLevel = document.getElementById('levelBadge').textContent;
-    generateMotivationalMessage(stressScore, stressLevel);
+async function generateNewMotivation() {
+    try {
+        console.log("Generating new motivation...");
+        
+        const scoreElement = document.getElementById('stressScore');
+        const levelElement = document.getElementById('levelBadge');
+        
+        if (!scoreElement || !levelElement) {
+            console.error("Could not find stress score elements");
+            showNotification('❌ Could not find stress data', 'error');
+            return;
+        }
+
+        const stressLevel = parseFloat(scoreElement.textContent);
+        const stressCategory = levelElement.textContent;
+
+        console.log("Stress data:", { stressLevel, stressCategory });
+
+        // Show loading indicator
+        const typingIndicator = document.getElementById('typingIndicator');
+        if (typingIndicator) typingIndicator.style.display = 'block';
+
+        const motivationText = document.getElementById('motivationText');
+        if (motivationText) motivationText.innerHTML = '';
+
+        // Disable play button while generating
+        const playButton = document.getElementById('playButton');
+        if (playButton) playButton.disabled = true;
+
+        // Call backend to generate motivation
+        const response = await fetch('/api/generate-motivation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                stress_level: stressLevel,
+                stress_category: stressCategory,
+                user_message: `I'm feeling ${stressCategory.toLowerCase()} stress`,
+                generate_audio: true,
+                voice_gender: 'female'
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("Motivation response:", data);
+
+        // Hide loading indicator FIRST
+        if (typingIndicator) typingIndicator.style.display = 'none';
+
+        // Display message IMMEDIATELY
+        if (motivationText && data.motivational_message) {
+            motivationText.textContent = data.motivational_message;
+            motivationText.style.display = 'block';
+        }
+
+        // Handle audio separately - no blocking
+        if (data.audio_file_path) {
+            console.log("✅ Audio URL received:", data.audio_file_path);
+            // Audio path is already a full URL like /api/audio-stream/uuid
+            enableAudioPlayback(data.audio_file_path);
+            showNotification('✅ New motivation generated!', 'success');
+        } else {
+            console.warn("⚠️ No audio file in response");
+            if (playButton) playButton.disabled = true;
+            showNotification('✅ Motivation generated (audio unavailable)', 'info');
+        }
+
+    } catch (error) {
+        console.error("❌ Error generating motivation:", error);
+        console.error("Full error object:", error);
+        
+        // Hide loading
+        const typingIndicator = document.getElementById('typingIndicator');
+        if (typingIndicator) typingIndicator.style.display = 'none';
+        
+        // Show specific error message
+        showNotification(`❌ Error: ${error.message}`, 'error');
+        
+        // Display fallback text
+        const motivationText = document.getElementById('motivationText');
+        if (motivationText) {
+            motivationText.textContent = "I'm here for you. Take a deep breath. You've got this.";
+            motivationText.style.display = 'block';
+        }
+    }
 }
 
 function showTemporaryMessage(message) {
