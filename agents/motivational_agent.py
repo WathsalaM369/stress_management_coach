@@ -33,13 +33,14 @@ class MotivationalAgent:
         
         print(f"🔧 Initializing MotivationalAgent - use_gemini: {use_gemini}")
         
-        if use_gemini:
-            self.gemini_client = self._setup_gemini()
-            if self.gemini_client:
-                print("✅ Gemini client initialized for motivational agent")
-            else:
-                print("❌ Gemini setup failed, using rule-based motivation")
-                self.use_gemini = False
+        if not use_gemini:
+            raise Exception("❌ AI motivation requires use_gemini=True. Rule-based messages are no longer supported.")
+        
+        self.gemini_client = self._setup_gemini()
+        if not self.gemini_client:
+            raise Exception("❌ Gemini setup failed - AI motivation requires valid API key and connection")
+        
+        print("✅ Gemini client initialized for motivational agent")
         
         # Initialize pygame mixer for audio playback
         try:
@@ -60,8 +61,9 @@ class MotivationalAgent:
             
             genai.configure(api_key=api_key)
             
-            # Use a model suitable for creative text generation
-            model_name = 'models/gemini-1.5-flash'
+            # Use the model from .env file, fallback to gemini-2.0-flash-001
+            model_name = os.getenv('GEMINI_MODEL', 'models/gemini-2.0-flash-001')
+            print(f"📱 Using Gemini model: {model_name}")
             model = genai.GenerativeModel(model_name)
             
             # Test the connection
@@ -84,19 +86,12 @@ class MotivationalAgent:
         try:
             # Validate input
             if not (0 <= request.stress_level <= 10):
-                return MotivationResponse(
-                    motivational_message="Hey, I'm here with you. Whatever you're going through, you don't have to face it alone.",
-                    success=False,
-                    voice_used=request.voice_gender
-                )
+                raise ValueError("Stress level must be between 0 and 10")
             
             logger.info(f"🎯 Generating motivation for stress level: {request.stress_level} ({request.stress_category})")
             
-            # Generate motivational message
-            if self.use_gemini and self.gemini_client:
-                motivational_text = self._generate_gemini_motivation(request)
-            else:
-                motivational_text = self._generate_rule_based_motivation(request)
+            # Generate motivational message using Gemini AI
+            motivational_text = self._generate_gemini_motivation(request)
             
             # Generate audio if requested
             audio_path = None
@@ -111,15 +106,11 @@ class MotivationalAgent:
             )
             
         except Exception as e:
-            logger.error(f"❌ Error in generate_motivation: {e}")
-            return MotivationResponse(
-                motivational_message="It's okay to not be okay. Just breathe - I'm right here with you.",
-                success=False,
-                voice_used=request.voice_gender
-            )
+            logger.critical(f"❌ CRITICAL ERROR in generate_motivation: {e}")
+            raise
     
     def _generate_gemini_motivation(self, request: MotivationRequest) -> str:
-        """Generate motivational message using Gemini"""
+        """Generate motivational message using Gemini - AI-only, no fallbacks"""
         try:
             prompt = self._build_motivation_prompt(request)
             
@@ -136,14 +127,14 @@ class MotivationalAgent:
             
             # Clean and validate the response
             if len(motivational_text) < 10 or len(motivational_text) > 300:
-                raise ValueError("Invalid response length from Gemini")
+                raise ValueError(f"Invalid response length from Gemini: {len(motivational_text)} characters")
                 
             print(f"✅ Gemini generated motivational message: {len(motivational_text)} chars")
             return motivational_text
             
         except Exception as e:
-            print(f"❌ Gemini motivation generation failed: {e}")
-            return self._generate_rule_based_motivation(request)
+            logger.critical(f"❌ Gemini motivation generation failed: {e}")
+            raise
     
     def _build_motivation_prompt(self, request: MotivationRequest) -> str:
         """Build prompt for Gemini based on stress level"""
@@ -226,51 +217,6 @@ class MotivationalAgent:
         
         return prompt
     
-    def _generate_rule_based_motivation(self, request: MotivationRequest) -> str:
-        """Generate rule-based motivational messages as fallback"""
-        
-        rule_based_messages = {
-            "Low": [
-                "Hey! So glad to hear you're doing okay right now 🌟 Keep riding that good wave!",
-                "You're crushing it! Love to see you taking care of yourself 💫",
-                "This is your reminder that you're doing amazing, and I'm really happy for you! 🎉",
-                "Look at you, handling life like a pro! So proud of you ✨",
-                "You've got such great energy right now! Sending you good vibes to keep it going 💖"
-            ],
-            "Medium": [
-                "I see you, and I get it. This is tough, but you're tougher 💪",
-                "Hey, it's okay to feel this way. You're handling it better than you think!",
-                "One breath at a time, one step at a time. You've got this, friend 🌈",
-                "I'm right here with you. This feeling won't last forever, I promise.",
-                "You're doing the best you can, and that's more than enough right now 💝"
-            ],
-            "High": [
-                "Oh honey, I'm so sorry you're carrying this much 💔 Just breathe - I'm right here with you.",
-                "This is really heavy, and you don't have to carry it alone. I'm sitting with you in this.",
-                "Your feelings make complete sense. However you need to be right now is okay 🫂",
-                "I can't fix it, but I can be here with you. You're not alone in this.",
-                "It's okay to fall apart. I'll be here when you're ready 💗"
-            ],
-            "Very High": [
-                "I'm just sitting here with you in this hard moment. However you feel is okay 🌙",
-                "You're surviving right now, and that's enough. However you need to get through this moment is okay.",
-                "No words needed. I'm just here, holding space for you 🕊️",
-                "However dark it feels right now, I'm here with my little light. You're not alone.",
-                "Just keep breathing. However you're getting through this moment is brave 💫"
-            ],
-            "Chronic High": [
-                "You've been carrying this for so long, and you're still here. That says everything about your strength 🌄",
-                "Day after day, you keep showing up. I see how hard that is, and I'm in awe of you.",
-                "The fact that you're still fighting through this tells me everything about your incredible spirit 💖",
-                "You've been through so much, and you're still here. That's not nothing - that's everything.",
-                "However tired you are, however much it hurts - I see you, and I'm not going anywhere 🌟"
-            ]
-        }
-        
-        import random
-        messages = rule_based_messages.get(request.stress_category, rule_based_messages["Medium"])
-        return random.choice(messages)
-    
     def _text_to_speech(self, text: str, stress_category: str, voice_gender: str = "female") -> str:
         """Convert text to speech and return audio file path"""
         try:
@@ -305,7 +251,7 @@ class MotivationalAgent:
             
         except Exception as e:
             print(f"❌ Text-to-speech conversion failed: {e}")
-            return None
+            raise
     
     def play_audio(self, audio_path: str):
         """Play the generated audio file"""
@@ -326,7 +272,7 @@ class MotivationalAgent:
                 
         except Exception as e:
             print(f"❌ Audio playback failed: {e}")
-            return False
+            raise
     
     def get_available_voices(self):
         """Get available voice options"""
@@ -358,5 +304,10 @@ class MotivationalAgent:
         
         self.audio_files.clear()
 
-# Create a singleton instance
-motivational_agent = MotivationalAgent(use_gemini=True)
+# Create a singleton instance with error handling
+try:
+    motivational_agent = MotivationalAgent(use_gemini=True)
+except Exception as e:
+    print(f"FATAL ERROR: {e}")
+    print("Please ensure GOOGLE_API_KEY is set in your .env file")
+    motivational_agent = None
