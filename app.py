@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from flask import Flask, request, jsonify, send_from_directory, session
+from flask import Flask, request, jsonify, render_template, redirect, url_for, send_from_directory, session
 from flask_cors import CORS
 import uvicorn
 from dotenv import load_dotenv
@@ -65,10 +66,22 @@ except ImportError:
 
 from agents.motivational_agent import motivational_agent, MotivationRequest
 from config import Config
+from agents.activity_recommender_flask import activity_bp
+from agents.stress_estimator import StressEstimator
+from agents.adaptive_scheduler_agent import scheduler_agent
 from datetime import datetime, timedelta
+<<<<<<< HEAD
+=======
+import requests
+import json
+import os
+>>>>>>> 3177094ff4afecf5ea5c39debf536937c04b4b9a
 import secrets
 import hashlib
-import json
+import google.generativeai as genai
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Float
+from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import sessionmaker
 
 # FastAPI App (Vinusha's version)
 fastapi_app = FastAPI(title="Stress Management Coach API")
@@ -92,6 +105,35 @@ flask_app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
 
 # Enhanced CORS with Gemini support for Flask
 CORS(flask_app, supports_credentials=True, origins=['http://localhost:3000', 'http://localhost:5001'])
+# Enhanced CORS with Gemini support
+CORS(flask_app, supports_credentials=True, origins=['http://localhost:3000', 'http://localhost:5001'])
+
+# =============================================================================
+# SENUTHI'S ACTIVITY RECOMMENDER SETUP
+# =============================================================================
+
+# Simple mock for stress estimation (used by activity recommender)
+class MockStressEstimator:
+    def estimate_stress_level(self, text):
+        if not text:
+            return {"stress_level": "Medium", "score": 0.5, "message": "No text provided"}
+        
+        text_lower = text.lower()
+        if any(word in text_lower for word in ['stress', 'anxious', 'overwhelm', 'pressure', 'worry']):
+            return {"stress_level": "High", "score": 0.8, "message": "You seem to be experiencing high stress levels"}
+        elif any(word in text_lower for word in ['tired', 'busy', 'hectic', 'lot to do']):
+            return {"stress_level": "Medium", "score": 0.6, "message": "You flask_appear to have moderate stress"}
+        else:
+            return {"stress_level": "Low", "score": 0.3, "message": "You seem to be doing well"}
+
+agent = MockStressEstimator()
+
+# Register activity recommender blueprint
+flask_app.register_blueprint(activity_bp, url_prefix='/api/activity_recommender')
+
+# =============================================================================
+# WATHSALA'S STRESS ESTIMATOR SETUP
+# =============================================================================
 
 # ==================== ENHANCED LLM CONFIGURATION ====================
 # Debug: Check environment variables
@@ -156,6 +198,499 @@ async def health_check():
     return {"status": "healthy"}
 
 # Flask Routes (Wathsala's endpoints)
+@flask_app.route('/api/register', methods=['POST'])
+def get_current_user_id():
+    """Get current user ID or create temporary one"""
+    user_id = session.get('user_id')
+    if not user_id:
+        user_id = f"temp_{secrets.token_hex(8)}"
+        session['user_id'] = user_id
+        session['username'] = 'Guest'
+        print(f"🆕 Created temporary user: {user_id}")
+    return user_id
+
+# =============================================================================
+# SENUTHI'S ACTIVITY RECOMMENDER WEB ROUTES
+# =============================================================================
+
+@flask_app.route('/')
+def index():
+    """Serve Wathsala's stress estimator frontend"""
+    try:
+        return send_from_directory('frontend', 'index.html')
+    except Exception as e:
+        # Fallback: if frontend folder doesn't exist, show a simple menu
+        return '''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>MindSoothe - Stress Management System</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    max-width: 800px;
+                    margin: 50px auto;
+                    padding: 20px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                }
+                .container {
+                    background: rgba(255, 255, 255, 0.95);
+                    padding: 40px;
+                    border-radius: 15px;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                    color: #333;
+                }
+                h1 { color: #667eea; margin-bottom: 30px; }
+                .btn {
+                    display: inline-block;
+                    padding: 15px 30px;
+                    margin: 10px;
+                    background: #667eea;
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    transition: all 0.3s;
+                }
+                .btn:hover {
+                    background: #764ba2;
+                    transform: translateY(-2px);
+                    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+                }
+                .btn-secondary {
+                    background: #48bb78;
+                }
+                .btn-secondary:hover {
+                    background: #38a169;
+                }
+                p { font-size: 18px; line-height: 1.6; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🧠 MindSoothe - Stress Management System</h1>
+                <p>Welcome! Choose a feature to get started:</p>
+                
+                <div style="margin-top: 30px;">
+                    <a href="/stress-assessment" class="btn">
+                        📊 Stress Assessment (Wathsala's Feature)
+                    </a>
+                    <br>
+                    <a href="/activity-recommender" class="btn btn-secondary">
+                        🎯 Get Activity Recommendations (Senuthi's Feature)
+                    </a>
+                </div>
+                
+                <div style="margin-top: 40px; padding: 20px; background: #f7fafc; border-radius: 8px;">
+                    <h3 style="color: #667eea;">📍 Quick Links:</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        <li>✅ <a href="/api/health">System Health Check</a></li>
+                        <li>✅ <a href="/users">View All Users</a></li>
+                    </ul>
+                </div>
+            </div>
+        </body>
+        </html>
+        '''
+
+@flask_app.route('/stress-assessment')
+def stress_assessment():
+    """Wathsala's stress assessment interface"""
+    try:
+        return send_from_directory('frontend', 'index.html')
+    except Exception as e:
+        return jsonify({"error": "Stress assessment frontend not found"}), 404
+
+@flask_app.route('/activity-recommender')
+def activity_recommender():
+    """Senuthi's activity recommender interface with AI"""
+    try:
+        # First try templates folder
+        return render_template('activity_recommendations.html')
+    except:
+        # Then try root directory
+        try:
+            with open('activity_recommendations.html', 'r', encoding='utf-8') as f:
+                return f.read()
+        except FileNotFoundError:
+            return '''
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Activity Recommendations</title>
+                <style>
+                    body { font-family: Arial; text-align: center; padding: 50px; }
+                    .error { color: red; }
+                </style>
+            </head>
+            <body>
+                <h1 class="error">⚠️ Activity Recommendations Page Not Found</h1>
+                <p>The file 'activity_recommendations.html' is missing.</p>
+                <p>Please check:</p>
+                <ul style="text-align: left; max-width: 500px; margin: 20px auto;">
+                    <li>File exists in 'templates' folder OR</li>
+                    <li>File exists in root directory (same as app.py)</li>
+                </ul>
+                <a href="/">← Back to Home</a>
+            </body>
+            </html>
+            ''', 404
+
+@flask_app.route('/onboard', methods=['GET', 'POST'])
+def onboard():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        likes = request.form.getlist('likes')
+        default_time = int(request.form.get('default_time', 10))
+        
+        print(f"DEBUG: Creating user '{username}' with likes: {likes}")
+        
+        try:
+            # Create user via API
+            response = requests.post(
+                'http://localhost:5001/api/activity_recommender/users',
+                json={'username': username},
+                timeout=5
+            )
+            
+            print(f"DEBUG: Response status: {response.status_code}")
+            print(f"DEBUG: Response content: {response.text}")
+            
+            if response.status_code == 201:
+                user_data = response.json()
+                user_id = user_data['id']
+                
+                # Set preferences
+                pref_response = requests.put(
+                    f'http://localhost:5001/api/activity_recommender/users/{user_id}/preferences',
+                    json={
+                        'likes': likes, 
+                        'default_available_minutes': default_time
+                    },
+                    timeout=5
+                )
+                
+                print(f"DEBUG: Preferences response: {pref_response.status_code}")
+                
+                if pref_response.status_code == 200:
+                    return redirect(url_for('recommend_success', user_id=user_id))
+                else:
+                    return render_template('user_onboard.html', error="Error setting preferences")
+            else:
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('error', 'Unknown error')
+                except:
+                    error_msg = f"Server returned status {response.status_code}"
+                
+                return render_template('user_onboard.html', error=error_msg)
+                
+        except requests.exceptions.RequestException as e:
+            return render_template('user_onboard.html', error=f"Connection error: {str(e)}")
+        except Exception as e:
+            return render_template('user_onboard.html', error=f"Unexpected error: {str(e)}")
+    
+    return render_template('user_onboard.html')
+
+@flask_app.route('/recommend-success/<int:user_id>')
+def recommend_success(user_id):
+    return render_template('activity_rec_result.html', user_id=user_id, message="Account created successfully!")
+
+@flask_app.route('/recommend', methods=['GET', 'POST'])
+def recommend():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        stress_level = request.form.get('stress_level')
+        available_minutes = int(request.form.get('available_minutes', 10))
+        user_text = request.form.get('user_text', '')
+        
+        if not username:
+            return render_template('activity_rec_form.html', error="Username is required")
+        
+        # Get stress level from text if provided
+        stress_result = None
+        if user_text:
+            stress_result = agent.estimate_stress_level(user_text)
+            stress_level = stress_result['stress_level']
+        
+        try:
+            # Get all users
+            response = requests.get('http://localhost:5001/api/activity_recommender/users')
+            
+            if response.status_code == 200:
+                users = response.json()
+                user_id = None
+                user_found = None
+                
+                # Find user by username (case-insensitive)
+                for user in users:
+                    if user['username'].lower() == username.lower():
+                        user_id = user['id']
+                        user_found = user
+                        break
+                
+                if not user_id:
+                    return render_template('activity_rec_form.html', 
+                                         error=f"User '{username}' not found. Please check the username or create a new account.")
+                
+                # Get recommendations
+                rec_response = requests.post(
+                    'http://localhost:5001/api/activity_recommender/recommend',
+                    json={
+                        'stress_level': stress_level,
+                        'user_id': user_id,
+                        'context': {'available_minutes': available_minutes}
+                    }
+                )
+                
+                if rec_response.status_code == 200:
+                    result = rec_response.json()
+                    recommendations = result.get('recommendations', [])
+                    
+                    return render_template('activity_rec_result.html',
+                                         recommendations=recommendations,
+                                         stress_result=stress_result,
+                                         username=username,
+                                         user=user_found)
+                else:
+                    error_msg = rec_response.json().get('error', 'Unknown error')
+                    return render_template('activity_rec_form.html', 
+                                         error=f"Error getting recommendations: {error_msg}")
+            else:
+                return render_template('activity_rec_form.html', 
+                                     error="Cannot access user database. Please try again.")
+                
+        except requests.exceptions.RequestException as e:
+            return render_template('activity_rec_form.html', 
+                                 error=f"Connection error: {str(e)}")
+    
+    # For GET requests, check if username is provided in URL parameters
+    username = request.args.get('username', '')
+    return render_template('activity_rec_form.html', username=username)
+
+@flask_app.route('/users')
+def users_list():
+    """Display all registered users"""
+    try:
+        response = requests.get('http://localhost:5001/api/activity_recommender/users')
+        if response.status_code == 200:
+            users = response.json()
+            return render_template('users_list.html', users=users)
+        else:
+            return render_template('users_list.html', users=[], error="Cannot fetch users")
+    except requests.exceptions.RequestException as e:
+        return render_template('users_list.html', users=[], error=f"Connection error: {str(e)}")
+
+@flask_app.route('/api/users', methods=['GET'])
+def get_all_users():
+    try:
+        response = requests.get('http://localhost:5001/api/activity_recommender/users')
+        if response.status_code == 200:
+            return jsonify(response.json())
+        else:
+            return jsonify([])
+    except:
+        return jsonify([])
+
+@flask_app.route('/api/estimate_stress', methods=['POST'])
+def estimate_stress():
+    data = request.get_json()
+    text = data.get('text', '')
+    result = agent.estimate_stress_level(text)
+    return jsonify(result)
+
+@flask_app.route('/api/get-activity-recommendations', methods=['POST', 'OPTIONS'])
+def get_activity_recommendations():
+    """Generate AI-powered activity recommendations based on stress level"""
+    try:
+        data = request.get_json()
+        print(f"📥 Received recommendation request: {data}")
+        
+        stress_score = data.get('stress_score', 5.0)
+        stress_level = data.get('stress_level', 'Medium')
+        available_minutes = data.get('available_minutes', 15)
+        preferences = data.get('preferences', ['physical', 'creative', 'mindful', 'social'])
+        
+        print(f"🎯 Generating recommendations for stress level: {stress_level} ({stress_score}/10)")
+        print(f"⏰ Available time: {available_minutes} minutes")
+        print(f"🎨 Preferences: {preferences}")
+        
+        # Use Gemini AI to generate recommendations
+        if flask_estimator.use_llm:
+            print("🤖 Using Gemini AI for recommendations...")
+            import google.generativeai as genai
+            
+            # Configure API with the same key as the rest of the system
+            api_key = os.getenv('GOOGLE_API_KEY')
+            genai.configure(api_key=api_key)
+            
+            # Use the model from .env or default to gemini-2.0-flash-001
+            model_name = os.getenv('GEMINI_MODEL', 'models/gemini-2.0-flash-001')
+            print(f"🤖 Using model: {model_name}")
+            
+            prompt = f"""You are a stress management expert. Generate 4-5 personalized activity recommendations for someone with:
+
+Stress Level: {stress_level} ({stress_score}/10)
+Available Time: {available_minutes} minutes
+Preferred Activity Types: {', '.join(preferences)}
+
+For each activity, provide:
+1. Name (short, catchy)
+2. Description (2-3 sentences explaining benefits)
+3. Duration (in minutes, should fit within {available_minutes} minutes)
+4. Category (one of: physical, creative, mindful, social)
+5. Difficulty (Easy, Moderate, or Challenging)
+6. Icon (single emoji that represents the activity)
+7. Steps (3-5 simple steps to do the activity)
+
+Also provide a brief AI insight (2-3 sentences) explaining why these activities are good for their current stress level.
+
+Return ONLY a valid JSON object with this structure:
+{{
+    "ai_insight": "Brief explanation here",
+    "recommendations": [
+        {{
+            "name": "Activity Name",
+            "description": "Why this helps",
+            "duration": 10,
+            "category": "mindful",
+            "difficulty": "Easy",
+            "icon": "🧘",
+            "steps": ["Step 1", "Step 2", "Step 3"]
+        }}
+    ]
+}}
+
+Make activities practical, evidence-based, and immediately actionable. Focus on activities that can reduce {stress_level.lower()} stress."""
+
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                
+                print("✅ Gemini response received")
+                
+                # Parse the JSON response
+                import re
+                response_text = response.text.strip()
+                print(f"📄 Raw response length: {len(response_text)} characters")
+                
+                # Remove markdown code blocks if present
+                response_text = re.sub(r'```json\s*|\s*```', '', response_text)
+                
+                recommendations_data = json.loads(response_text)
+                
+                print(f"✅ Generated {len(recommendations_data.get('recommendations', []))} AI recommendations")
+                return jsonify(recommendations_data)
+                
+            except json.JSONDecodeError as e:
+                print(f"❌ JSON Parse Error: {e}")
+                print(f"📄 Response text: {response_text[:500]}...")
+                # Fallback to simple recommendations
+                print("⚠️ Falling back to simple recommendations")
+                
+        else:
+            print("⚠️ LLM disabled, using fallback recommendations")
+        
+        # Fallback: Simple rule-based recommendations
+        fallback_recommendations = {
+            "ai_insight": f"Based on your {stress_level.lower()} stress level ({stress_score}/10), here are some evidence-based activities that can help you feel better right now.",
+            "recommendations": [
+                {
+                    "name": "Deep Breathing Exercise",
+                    "description": "Calm your nervous system with controlled breathing. This simple technique activates your body's relaxation response and can reduce stress hormones within minutes.",
+                    "duration": 5,
+                    "category": "mindful",
+                    "difficulty": "Easy",
+                    "icon": "🌬️",
+                    "steps": [
+                        "Sit comfortably with your back straight",
+                        "Breathe in slowly through your nose for 4 counts",
+                        "Hold your breath for 4 counts",
+                        "Exhale slowly through your mouth for 6 counts",
+                        "Repeat 10 times, focusing on your breath"
+                    ]
+                },
+                {
+                    "name": "Quick Walk Outside",
+                    "description": "Physical movement and fresh air can instantly boost your mood and reduce stress hormones. Walking combines exercise with a change of environment.",
+                    "duration": min(15, available_minutes),
+                    "category": "physical",
+                    "difficulty": "Easy",
+                    "icon": "🚶‍♂️",
+                    "steps": [
+                        "Put on comfortable shoes",
+                        "Step outside and take a brisk walk",
+                        "Focus on your surroundings - notice 5 things you can see",
+                        "Take deep breaths of fresh air",
+                        "Return feeling refreshed"
+                    ]
+                },
+                {
+                    "name": "Creative Journaling",
+                    "description": "Express your thoughts and feelings on paper. Journaling helps process emotions and gain clarity about what's bothering you.",
+                    "duration": 10,
+                    "category": "creative",
+                    "difficulty": "Easy",
+                    "icon": "📝",
+                    "steps": [
+                        "Grab a notebook or open a document",
+                        "Write freely about what's on your mind",
+                        "Don't worry about grammar or structure",
+                        "Include both feelings and thoughts",
+                        "Read it back if helpful, or just let it out"
+                    ]
+                },
+                {
+                    "name": "Progressive Muscle Relaxation",
+                    "description": "Release physical tension by systematically tensing and relaxing muscle groups. This helps you become aware of tension and learn to release it.",
+                    "duration": 10,
+                    "category": "mindful",
+                    "difficulty": "Easy",
+                    "icon": "💆‍♂️",
+                    "steps": [
+                        "Lie down or sit comfortably",
+                        "Tense your feet for 5 seconds, then release",
+                        "Move up through legs, stomach, arms, and face",
+                        "Notice the difference between tension and relaxation",
+                        "Breathe deeply throughout"
+                    ]
+                }
+            ]
+        }
+        
+        print(f"✅ Returning {len(fallback_recommendations['recommendations'])} fallback recommendations")
+        return jsonify(fallback_recommendations)
+            
+    except Exception as e:
+        print(f"❌ Error generating recommendations: {str(e)}")
+        import traceback
+        print(f"❌ Traceback: {traceback.format_exc()}")
+        return jsonify({
+            "error": str(e),
+            "ai_insight": "We encountered an error generating personalized recommendations.",
+            "recommendations": [
+                {
+                    "name": "Take a Deep Breath",
+                    "description": "Let's start simple. Take 5 deep breaths right now.",
+                    "duration": 2,
+                    "category": "mindful",
+                    "difficulty": "Easy",
+                    "icon": "🌬️",
+                    "steps": [
+                        "Breathe in for 4 counts",
+                        "Hold for 4 counts",
+                        "Breathe out for 6 counts",
+                        "Repeat 5 times"
+                    ]
+                }
+            ]
+        }), 500
+
+# =============================================================================
+# WATHSALA'S STRESS ESTIMATOR API ROUTES
+# =============================================================================
+
 @flask_app.route('/api/register', methods=['POST'])
 def register():
     try:
@@ -260,6 +795,7 @@ def get_current_user_id():
         print(f"🆕 Created temporary user: {user_id}")
     return user_id
 
+@flask_app.route('/api/analyze-mood', methods=['POST', 'OPTIONS'])
 @flask_app.route('/api/analyze-mood', methods=['POST', 'OPTIONS'])
 def analyze_mood():
     if request.method == 'OPTIONS':
@@ -401,12 +937,13 @@ def get_user_trend_fixed(user_id):
         return "unknown"
     
 @flask_app.route('/api/history/<user_id>', methods=['GET'])
+
+@flask_app.route('/api/history/<user_id>', methods=['GET'])
 def get_user_history(user_id):
     try:
         print(f"📊 Getting history for user: {user_id}")
         history = flask_estimator.db_manager.get_user_history(user_id)
         
-        # Debug: Print what we're getting from database
         print(f"📋 History records found: {len(history)}")
         for i, record in enumerate(history[:3]):
             print(f"  Record {i}: {record.get('stress_score', 'N/A')} - {record.get('timestamp', 'N/A')}")
@@ -558,11 +1095,498 @@ def debug_session():
         "username": session.get('username')
     })
 
+
+
+# =============================================================================
+# MANUTHI'S TASK SCHEDULER DATABASE SETUP
+# =============================================================================
+Base = declarative_base()
+scheduler_engine = create_engine('sqlite:///scheduler.db')
+SchedulerSession = sessionmaker(bind=scheduler_engine)
+
+class UserRoutine(Base):
+    __tablename__ = 'user_routines'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String, index=True)
+    routine_data = Column(Text)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+class UserSchedule(Base):
+    __tablename__ = 'user_schedules'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String, index=True)
+    schedule_data = Column(Text)
+    week_start = Column(String)
+    stress_level = Column(Float)
+    mood = Column(String)
+    created_at = Column(DateTime, default=datetime.now)
+
+class TaskRecord(Base):
+    __tablename__ = 'task_records'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String, index=True)
+    tasks_data = Column(Text)
+    created_at = Column(DateTime, default=datetime.now)
+
+Base.metadata.create_all(scheduler_engine)
+
+# Configure Gemini for Scheduler
+gemini_api_key = os.getenv('GOOGLE_API_KEY')
+if gemini_api_key and gemini_api_key != 'your_actual_google_api_key_here':
+    genai.configure(api_key=gemini_api_key)
+    scheduler_model_name = os.getenv('GEMINI_MODEL', 'models/gemini-2.0-flash-001')
+    scheduler_model = genai.GenerativeModel(scheduler_model_name)
+    print(f"✅ Scheduler Gemini configured: {scheduler_model_name}")
+else:
+    scheduler_model = None
+    print("⚠️ Scheduler Gemini not configured - API key missing")
+
+# =============================================================================
+# MANUTHI'S TASK SCHEDULER ROUTES
+# =============================================================================
+@flask_app.route('/task-scheduler')
+def task_scheduler():
+    """Main Task Scheduler Interface"""
+    try:
+        with open('task_scheduler.html', 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        return jsonify({"error": "Task scheduler page not found"}), 404
+
+@flask_app.route('/api/scheduler/check-status', methods=['GET'])
+def check_scheduler_status():
+    """Check if user has routine and recent stress assessment"""
+    user_id = get_current_user_id()
+    
+    db_scheduler = SchedulerSession()
+    try:
+        # Check for existing routine
+        existing_routine = db_scheduler.query(UserRoutine).filter_by(user_id=user_id).first()
+        has_routine = existing_routine is not None
+        
+        # Check for recent stress assessment (within 24 hours)
+        stress_history = flask_estimator.db_manager.get_user_history(user_id, 1)
+        
+        has_stress = False
+        latest_stress = None
+        
+        if stress_history and len(stress_history) > 0:
+            latest_stress = stress_history[0]
+            try:
+                assessment_time = datetime.fromisoformat(latest_stress['timestamp'].replace('Z', '+00:00'))
+                time_diff = datetime.now() - assessment_time
+                if time_diff.total_seconds() < 86400:  # 24 hours
+                    has_stress = True
+            except:
+                has_stress = True
+        
+        return jsonify({
+            'status': 'success',
+            'has_routine': has_routine,
+            'has_stress_assessment': has_stress,
+            'stress_data': latest_stress if has_stress else None
+        })
+    finally:
+        db_scheduler.close()
+
+@flask_app.route('/api/scheduler/save-routine', methods=['POST'])
+def save_scheduler_routine():
+    """Save or update user's weekly routine"""
+    data = request.json
+    user_id = get_current_user_id()
+    
+    db = SchedulerSession()
+    try:
+        existing = db.query(UserRoutine).filter_by(user_id=user_id).first()
+        
+        routine_json = json.dumps({
+            'weekly_routine': data.get('routine'),
+            'work_hours': data.get('work_hours'),
+            'sleep_schedule': data.get('sleep_schedule'),
+            'preferences': data.get('preferences'),
+            'energy_levels': data.get('energy_levels')
+        })
+        
+        if existing:
+            existing.routine_data = routine_json
+            existing.updated_at = datetime.now()
+            message = 'Routine updated successfully'
+        else:
+            new_routine = UserRoutine(user_id=user_id, routine_data=routine_json)
+            db.add(new_routine)
+            message = 'Routine saved successfully'
+        
+        db.commit()
+        print(f"✅ {message} for user: {user_id}")
+        return jsonify({'status': 'success', 'message': message})
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error saving routine: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        db.close()
+
+@flask_app.route('/api/scheduler/get-routine', methods=['GET'])
+def get_scheduler_routine():
+    """Get user's saved routine"""
+    user_id = get_current_user_id()
+    
+    db = SchedulerSession()
+    try:
+        routine_record = db.query(UserRoutine).filter_by(user_id=user_id).first()
+        
+        if routine_record:
+            routine_data = json.loads(routine_record.routine_data)
+            return jsonify({
+                'status': 'success',
+                'routine': routine_data,
+                'updated_at': routine_record.updated_at.isoformat()
+            })
+        else:
+            return jsonify({'status': 'error', 'message': 'No routine found'}), 404
+    finally:
+        db.close()
+
+@flask_app.route('/api/scheduler/generate-schedule', methods=['POST'])
+def generate_scheduler_schedule():
+    """Generate optimized schedule using Gemini"""
+    data = request.json
+    user_id = get_current_user_id()
+    
+    if not scheduler_model:
+        return jsonify({'status': 'error', 'message': 'AI scheduling not available. Please check Gemini API configuration.'}), 500
+    
+    tasks = data.get('tasks', [])
+    week_start = data.get('week_start')
+    stress_score = data.get('stress_score', 5)
+    stress_level = data.get('stress_level', 'Medium')
+    mood = data.get('mood', 'neutral')
+    
+    print(f"🗓️ Generating schedule for {len(tasks)} tasks, stress: {stress_score}/10")
+    
+    db = SchedulerSession()
+    try:
+        # Get user's routine
+        user_routine_record = db.query(UserRoutine).filter_by(user_id=user_id).first()
+        
+        if not user_routine_record:
+            return jsonify({
+                'status': 'error',
+                'message': 'No routine found. Please set up your weekly routine first.'
+            }), 404
+        
+        routine_data = json.loads(user_routine_record.routine_data)
+        routine = routine_data.get('weekly_routine', {})
+        
+        # Build enhanced prompt
+        prompt = f"""You are an AI Task Scheduler. Create an optimized weekly schedule with STRICT DEADLINE compliance.
+
+USER'S WEEKLY ROUTINE:
+{json.dumps(routine, indent=2)}
+
+TASKS TO SCHEDULE (sorted by urgency):
+{json.dumps(sorted(tasks, key=lambda x: (x.get('deadline', '9999-12-31'), 0 if x.get('priority')=='high' else 1)), indent=2)}
+
+STRESS CONTEXT:
+- Stress Score: {stress_score}/10
+- Stress Level: {stress_level}
+- Mood: {mood}
+- Week Start: {week_start}
+
+SCHEDULING RULES:
+1. HIGH PRIORITY + URGENT DEADLINES FIRST (deadline within 2 days)
+2. ALL tasks MUST be scheduled BEFORE their deadline
+3. High stress (≥7): Max 4-5h work/day, 20min buffers, frequent breaks
+4. Medium stress (4-6): Max 6-7h work/day, 10min buffers
+5. Low stress (1-3): Up to 8h work/day, standard buffers
+6. NEVER schedule during "blocked" or "sleep" time slots
+7. Add stress-relief breaks between intense tasks
+
+OUTPUT (JSON only):
+{{
+  "schedule": [
+    {{
+      "day": "Monday",
+      "date": "2025-10-14",
+      "total_work_hours": 5.5,
+      "slots": [
+        {{
+          "time": "09:00-11:00",
+          "task": "Task name",
+          "priority": "High",
+          "type": "work",
+          "flexible": false,
+          "deadline": "2025-10-16",
+          "urgency": "urgent",
+          "notes": "High priority - deadline in 2 days"
+        }}
+      ]
+    }}
+  ],
+  "warnings": ["List any scheduling conflicts or deadline issues"],
+  "suggestions": ["Optimization tips"],
+  "workload_analysis": {{"Monday": "balanced", "Tuesday": "light"}},
+  "stress_adaptations": ["Applied 5h daily limit for high stress"],
+  "deadline_compliance": ["All 8 tasks scheduled before deadlines"]
+}}
+
+Return ONLY valid JSON, no markdown."""
+
+        # Call Gemini
+        response = scheduler_model.generate_content(prompt)
+        response_text = response.text.strip()
+        
+        # Clean response
+        if '```json' in response_text:
+            json_start = response_text.find('```json') + 7
+            json_end = response_text.find('```', json_start)
+            response_text = response_text[json_start:json_end].strip()
+        elif '```' in response_text:
+            json_start = response_text.find('```') + 3
+            json_end = response_text.rfind('```')
+            response_text = response_text[json_start:json_end].strip()
+        
+        schedule_data = json.loads(response_text)
+        
+        # Save schedule to database
+        new_schedule = UserSchedule(
+            user_id=user_id,
+            schedule_data=json.dumps(schedule_data),
+            week_start=week_start,
+            stress_level=stress_score,
+            mood=mood
+        )
+        db.add(new_schedule)
+        
+        # Save tasks
+        new_tasks = TaskRecord(user_id=user_id, tasks_data=json.dumps(tasks))
+        db.add(new_tasks)
+        
+        db.commit()
+        
+        print(f"✅ Schedule generated and saved for user: {user_id}")
+        return jsonify({'status': 'success', 'schedule': schedule_data})
+        
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON parsing error: {e}")
+        return jsonify({'status': 'error', 'message': 'AI generated invalid response. Please try again.'}), 500
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error generating schedule: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        db.close()
+
+@flask_app.route('/api/scheduler/estimate-duration', methods=['POST'])
+def estimate_task_duration():
+    """Use Gemini to estimate task duration based on task name and context"""
+    try:
+        data = request.json
+        task_name = data.get('task_name')
+        priority = data.get('priority', 'medium')
+        deadline = data.get('deadline')
+        stress_level = data.get('stress_level', 'Medium')
+        stress_score = data.get('stress_score', 5.0)
+        
+        print(f"🤖 Estimating duration for task: {task_name}")
+        
+        if not scheduler_model:
+            # Fallback: Rule-based estimation
+            return jsonify({
+                'status': 'success',
+                'estimated_duration': estimate_duration_fallback(task_name, priority),
+                'method': 'rule_based'
+            })
+        
+        # Use Gemini for intelligent estimation
+        prompt = f"""You are a task duration estimation expert. Estimate how long this task will take, INCLUDING preparation time and buffer.
+
+TASK DETAILS:
+- Task Name: {task_name}
+- Priority: {priority}
+- Deadline: {deadline}
+- User's Stress Level: {stress_level} ({stress_score}/10)
+
+ESTIMATION GUIDELINES:
+1. Consider the task type and complexity
+2. Include preparation time (setup, research, gathering materials)
+3. Add buffer time for breaks and unexpected issues
+4. Adjust for stress level:
+   - High stress (7-10): Add 20-30% buffer
+   - Medium stress (4-6): Add 10-20% buffer
+   - Low stress (1-3): Standard estimation
+
+COMMON TASK TYPES:
+- "Write report/document": 2-4 hours
+- "Presentation prep": 3-5 hours
+- "Meeting": 1-2 hours
+- "Research": 2-6 hours
+- "Code/develop": 4-8 hours
+- "Review/analyze": 1-3 hours
+- "Plan/organize": 1-2 hours
+- "Email/communicate": 0.5-1 hour
+
+Return ONLY a JSON object:
+{{
+  "estimated_hours": 2.5,
+  "explanation": "Brief reason for this estimate"
+}}
+
+Be realistic but slightly generous with time estimates."""
+
+        response = scheduler_model.generate_content(prompt)
+        response_text = response.text.strip()
+        
+        # Clean response
+        if '```json' in response_text:
+            json_start = response_text.find('```json') + 7
+            json_end = response_text.find('```', json_start)
+            response_text = response_text[json_start:json_end].strip()
+        elif '```' in response_text:
+            json_start = response_text.find('```') + 3
+            json_end = response_text.rfind('```')
+            response_text = response_text[json_start:json_end].strip()
+        
+        estimation_data = json.loads(response_text)
+        estimated_hours = float(estimation_data.get('estimated_hours', 2.0))
+        
+        # Ensure reasonable bounds
+        estimated_hours = max(0.5, min(estimated_hours, 12.0))
+        
+        print(f"✅ Estimated {estimated_hours} hours for '{task_name}'")
+        
+        return jsonify({
+            'status': 'success',
+            'estimated_duration': estimated_hours,
+            'explanation': estimation_data.get('explanation', 'AI-estimated duration'),
+            'method': 'gemini_ai'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error estimating duration: {str(e)}")
+        # Fallback
+        return jsonify({
+            'status': 'success',
+            'estimated_duration': estimate_duration_fallback(task_name, priority),
+            'method': 'fallback'
+        })
+
+def estimate_duration_fallback(task_name, priority):
+    """Simple rule-based fallback for duration estimation"""
+    task_lower = task_name.lower()
+    
+    # Check for keywords
+    if any(word in task_lower for word in ['write', 'document', 'report', 'essay']):
+        base = 3.0
+    elif any(word in task_lower for word in ['presentation', 'present', 'pitch']):
+        base = 4.0
+    elif any(word in task_lower for word in ['meeting', 'call', 'interview']):
+        base = 1.5
+    elif any(word in task_lower for word in ['research', 'study', 'learn']):
+        base = 3.0
+    elif any(word in task_lower for word in ['code', 'develop', 'program', 'build']):
+        base = 6.0
+    elif any(word in task_lower for word in ['review', 'check', 'analyze']):
+        base = 2.0
+    elif any(word in task_lower for word in ['plan', 'organize', 'schedule']):
+        base = 1.5
+    elif any(word in task_lower for word in ['email', 'message', 'respond']):
+        base = 0.5
+    else:
+        base = 2.0  # Default
+    
+    # Adjust for priority
+    if priority == 'high':
+        base *= 1.2  # More time for high priority
+    elif priority == 'low':
+        base *= 0.8
+    
+    return round(base, 1)
+
+@flask_app.route('/api/scheduler/get-schedule', methods=['GET'])
+def get_scheduler_schedule():
+    """Get latest schedule"""
+    user_id = get_current_user_id()
+    
+    db = SchedulerSession()
+    try:
+        latest_schedule = db.query(UserSchedule).filter_by(user_id=user_id).order_by(UserSchedule.created_at.desc()).first()
+        
+        if latest_schedule:
+            schedule_data = json.loads(latest_schedule.schedule_data)
+            return jsonify({
+                'status': 'success',
+                'schedule': schedule_data,
+                'created_at': latest_schedule.created_at.isoformat()
+            })
+        return jsonify({'status': 'error', 'message': 'No schedule found'}), 404
+    finally:
+        db.close()
+
+@flask_app.route('/api/scheduler/export-calendar', methods=['POST'])
+def export_to_calendar():
+    """Export schedule to iCal format for Google Calendar"""
+    data = request.json
+    schedule = data.get('schedule')
+    
+    if not schedule:
+        return jsonify({'status': 'error', 'message': 'No schedule data provided'}), 400
+    
+    # Build iCal content
+    ical_lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//MindSoothe Task Scheduler//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "X-WR-CALNAME:MindSoothe Schedule",
+        "X-WR-TIMEZONE:UTC",
+        "X-WR-CALDESC:AI-optimized task schedule from MindSoothe"
+    ]
+    
+    for day_schedule in schedule.get('schedule', []):
+        date_str = day_schedule['date'].replace('-', '')
+        
+        for slot in day_schedule.get('slots', []):
+            if slot.get('type') == 'work':  # Only export work tasks
+                time_parts = slot['time'].split('-')
+                start_time = time_parts[0].replace(':', '')
+                end_time = time_parts[1].replace(':', '')
+                
+                # Build event
+                event_lines = [
+                    "BEGIN:VEVENT",
+                    f"DTSTART:{date_str}T{start_time}00",
+                    f"DTEND:{date_str}T{end_time}00",
+                    f"SUMMARY:{slot['task']}",
+                    f"DESCRIPTION:Priority: {slot.get('priority', 'Medium')}\\nType: {slot.get('type', 'work')}\\n{slot.get('notes', '')}",
+                    "STATUS:CONFIRMED",
+                    f"UID:{date_str}T{start_time}00-{slot['task'].replace(' ', '-')}@mindsoothe.app",
+                    f"DTSTAMP:{datetime.now().strftime('%Y%m%dT%H%M%SZ')}",
+                    "END:VEVENT"
+                ]
+                ical_lines.extend(event_lines)
+    
+    ical_lines.append("END:VCALENDAR")
+    ical_content = '\n'.join(ical_lines)
+    
+    filename = f'mindsoothe_schedule_{datetime.now().strftime("%Y%m%d")}.ics'
+    
+    return jsonify({
+        'status': 'success',
+        'ical_data': ical_content,
+        'filename': filename
+    })
+# =============================================================================
+# SHARED/COMMON ROUTES
+# =============================================================================
+
 @flask_app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({
         "status": "healthy",
-        "service": "AI Stress Estimator",
+        "service": "Combined: Activity Recommender + Stress Estimator",
         "version": "3.0.0",
         "llm_enabled": flask_estimator.use_llm,
         "llm_provider": "Gemini 1.5 Flash" if flask_estimator.use_llm else "None",
@@ -597,7 +1621,9 @@ def test_endpoint():
     return jsonify({
         "message": "Backend is working!",
         "timestamp": datetime.now().isoformat(),
-        "status": "success"
+        "status": "success",
+        "gemini_enabled": estimator.use_llm,
+        "has_api_key": bool(os.getenv('GOOGLE_API_KEY'))
     })
 
 @flask_app.route('/')
@@ -605,7 +1631,54 @@ def serve_frontend():
     try:
         return send_from_directory('frontend', 'index.html')
     except Exception as e:
-        return jsonify({"error": "Frontend not found"}), 404
+        print(f"❌ Error serving frontend: {e}")
+        return "Error loading frontend", 500
+    
+
+@flask_app.route('/api/test-gemini', methods=['GET'])
+def test_gemini():
+    """Test if Gemini is working"""
+    try:
+        import google.generativeai as genai
+        api_key = os.getenv('GOOGLE_API_KEY')
+        
+        if not api_key:
+            return jsonify({"error": "No API key found in environment"}), 500
+            
+        genai.configure(api_key=api_key)
+        # Use the model from .env
+        model_name = os.getenv('GEMINI_MODEL', 'models/gemini-2.0-flash-001')
+        model = genai.GenerativeModel(model_name)
+        response = model.generate_content("Say 'Hello! Gemini is working!'")
+        
+        return jsonify({
+            "success": True,
+            "model_used": model_name,
+            "gemini_response": response.text,
+            "message": "Gemini API is working correctly!"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@flask_app.route('/api/debug/users', methods=['GET'],endpoint='debug_users_v2')
+def debug_users():
+    """Debug endpoint to see all registered users"""
+    return jsonify({
+        "total_users": len(users_db),
+        "users": users_db
+    })
+
+@flask_app.route('/api/debug/session', methods=['GET'], endpoint='debug_session_v2')
+def debug_session():
+    """Debug endpoint to check session"""
+    return jsonify({
+        "session_data": dict(session),
+        "user_id": session.get('user_id'),
+        "username": session.get('username')
+    })
 
 @flask_app.route('/<path:path>')
 def serve_static_files(path):
@@ -770,9 +1843,31 @@ def run_fastapi():
 
 def run_flask():
     print("🧠 MindSoothe Stress Detection System Starting...")
+# =============================================================================
+# START THE SERVER
+# =============================================================================
+
+if __name__ == '__main__':
+    print("🚀 Starting Combined System...")
     print("=" * 60)
-    print("📍 Backend API: http://localhost:5001")
-    print("🎨 Frontend: http://localhost:5001")
+    print("📍 SENUTHI: Activity Recommender System")
+    print("   - Web Routes: /onboard, /recommend, /users")
+    print("   - API: /api/activity_recommender/*")
+    print("")
+    print("📍 WATHSALA: Stress Detection System")
+    print("   - API: /api/analyze-mood, /api/register, /api/login")
+    print("   - Features: Gemini AI Analysis, Charts, Statistics")
+    print("")
+    print("📍 MANUTHI: Task Scheduler - Port 5001")
+    print("=" * 60)
+    print("🗓️  Task Scheduler Features:")
+    print("   ✅ Gemini-powered scheduling")
+    print("   ✅ Stress-adaptive task placement")
+    print("   ✅ Database-stored routines")
+    print("   ✅ Dynamic schedule adjustments")
+    print("")
+    print("🌐 Running on: http://localhost:5001")
+    print("=" * 60)
     print("")
     print("🤖 AI CAPABILITIES:")
     print(f"   ✅ Gemini Analysis: {flask_estimator.use_llm}")
@@ -793,6 +1888,7 @@ def run_flask():
     print("   POST /api/play-audio")
     print("   POST /api/analyze-with-motivation")
     print("   POST /api/analyze-mood-with-motivation")
+    print(f"   ✅ Gemini Analysis: {flask_estimator.use_llm}")
     print("")
     print("💾 Database: SQLite with user storage")
     print("=" * 60)
@@ -803,3 +1899,4 @@ if __name__ == '__main__':
     # You can choose which one to run, or run both in different processes
     run_flask()  # Running Flask version by default
     # run_fastapi()  # Uncomment to run FastAPI version instead
+    flask_app.run(debug=True, host='0.0.0.0', port=5001)
