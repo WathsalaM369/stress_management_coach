@@ -1234,20 +1234,32 @@ def get_scheduler_routine():
 
 @flask_app.route('/api/scheduler/generate-schedule', methods=['POST'])
 def generate_scheduler_schedule():
-    """Generate optimized schedule using Gemini"""
+    """Generate optimized schedule using Gemini with current time awareness"""
     data = request.json
     user_id = get_current_user_id()
     
     if not scheduler_model:
         return jsonify({'status': 'error', 'message': 'AI scheduling not available. Please check Gemini API configuration.'}), 500
     
+    # CRITICAL: Extract current_time from request
     tasks = data.get('tasks', [])
     week_start = data.get('week_start')
+    current_time = data.get('current_time')  # Format: "HH:MM" (e.g., "14:30")
     stress_score = data.get('stress_score', 5)
     stress_level = data.get('stress_level', 'Medium')
     mood = data.get('mood', 'neutral')
     
-    print(f"🗓️ Generating schedule for {len(tasks)} tasks, stress: {stress_score}/10")
+    print(f"🗓️ Generating schedule for {len(tasks)} tasks")
+    print(f"📊 Stress: {stress_score}/10")
+    print(f"⏰ Current time received: {current_time}")
+    print(f"📅 Week start: {week_start}")
+    
+    # Validate current_time
+    if not current_time:
+        current_time = datetime.now().strftime('%H:%M')
+        print(f"⚠️ No current_time provided, using system time: {current_time}")
+    else:
+        print(f"✅ Using provided current_time: {current_time}")
     
     db = SchedulerSession()
     try:
@@ -1263,10 +1275,19 @@ def generate_scheduler_schedule():
         routine_data = json.loads(user_routine_record.routine_data)
         routine = routine_data.get('weekly_routine', {})
         
-        # Build enhanced prompt
-        prompt = f"""You are an AI Task Scheduler. Create an optimized weekly schedule with STRICT DEADLINE compliance.
+        # Build enhanced prompt WITH current time consideration
+        prompt = f"""You are an AI Task Scheduler. Create an optimized weekly schedule with STRICT DEADLINE compliance and TIME AWARENESS.
 
-USER'S WEEKLY ROUTINE:
+CURRENT TIME: {current_time}
+WEEK STARTING: {week_start}
+
+⏰ CRITICAL TIME RULES:
+- Do NOT schedule tasks in time slots that have already passed TODAY
+- For example, if current time is {current_time}, skip any slots that end before this time
+- Only use available time slots from {current_time} onwards for today
+- Future days can use any available slot
+
+USER'S WEEKLY ROUTINE (Available time slots):
 {json.dumps(routine, indent=2)}
 
 TASKS TO SCHEDULE (sorted by urgency):
@@ -1276,16 +1297,16 @@ STRESS CONTEXT:
 - Stress Score: {stress_score}/10
 - Stress Level: {stress_level}
 - Mood: {mood}
-- Week Start: {week_start}
 
 SCHEDULING RULES:
 1. HIGH PRIORITY + URGENT DEADLINES FIRST (deadline within 2 days)
 2. ALL tasks MUST be scheduled BEFORE their deadline
-3. High stress (≥7): Max 4-5h work/day, 20min buffers, frequent breaks
-4. Medium stress (4-6): Max 6-7h work/day, 10min buffers
-5. Low stress (1-3): Up to 8h work/day, standard buffers
-6. NEVER schedule during "blocked" or "sleep" time slots
-7. Add stress-relief breaks between intense tasks
+3. NEVER schedule in time slots that have already passed
+4. High stress (≥7): Max 4-5h work/day, 20min buffers, frequent breaks
+5. Medium stress (4-6): Max 6-7h work/day, 10min buffers
+6. Low stress (1-3): Up to 8h work/day, standard buffers
+7. NEVER schedule during "blocked" or "sleep" time slots
+8. Add stress-relief breaks between intense tasks
 
 OUTPUT (JSON only):
 {{
@@ -1304,6 +1325,14 @@ OUTPUT (JSON only):
           "deadline": "2025-10-16",
           "urgency": "urgent",
           "notes": "High priority - deadline in 2 days"
+        }},
+        {{
+          "time": "11:00-11:15",
+          "task": "Break",
+          "priority": "Medium",
+          "type": "break",
+          "flexible": false,
+          "notes": "Stress relief break"
         }}
       ]
     }}
@@ -1312,14 +1341,19 @@ OUTPUT (JSON only):
   "suggestions": ["Optimization tips"],
   "workload_analysis": {{"Monday": "balanced", "Tuesday": "light"}},
   "stress_adaptations": ["Applied 5h daily limit for high stress"],
-  "deadline_compliance": ["All 8 tasks scheduled before deadlines"]
+  "deadline_compliance": ["All 8 tasks scheduled before deadlines"],
+  "scheduling_start_time": "{current_time}"
 }}
 
-Return ONLY valid JSON, no markdown."""
+Return ONLY valid JSON, no markdown, no explanations."""
 
+        print("🤖 Calling Gemini for schedule generation...")
+        
         # Call Gemini
         response = scheduler_model.generate_content(prompt)
         response_text = response.text.strip()
+        
+        print(f"📄 Gemini response received ({len(response_text)} chars)")
         
         # Clean response
         if '```json' in response_text:
@@ -1332,6 +1366,13 @@ Return ONLY valid JSON, no markdown."""
             response_text = response_text[json_start:json_end].strip()
         
         schedule_data = json.loads(response_text)
+        
+        # Add metadata
+        schedule_data['scheduling_time_used'] = current_time
+        schedule_data['generated_at'] = datetime.now().isoformat()
+        
+        print(f"✅ Schedule parsed successfully")
+        print(f"📊 Generated {len(schedule_data.get('schedule', []))} days of schedule")
         
         # Save schedule to database
         new_schedule = UserSchedule(
@@ -1350,17 +1391,23 @@ Return ONLY valid JSON, no markdown."""
         db.commit()
         
         print(f"✅ Schedule generated and saved for user: {user_id}")
+        print(f"⏰ Current time used in scheduling: {current_time}")
+        
         return jsonify({'status': 'success', 'schedule': schedule_data})
         
     except json.JSONDecodeError as e:
         print(f"❌ JSON parsing error: {e}")
+        print(f"Response preview: {response_text[:200]}")
         return jsonify({'status': 'error', 'message': 'AI generated invalid response. Please try again.'}), 500
     except Exception as e:
         db.rollback()
         print(f"❌ Error generating schedule: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
     finally:
         db.close()
+        
 
 @flask_app.route('/api/scheduler/estimate-duration', methods=['POST'])
 def estimate_task_duration():

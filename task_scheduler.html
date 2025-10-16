@@ -804,17 +804,24 @@
             document.getElementById('loading').style.display = 'block';
             document.getElementById('taskSection').style.display = 'none';
 
-            const today = new Date();
-            const monday = new Date(today.setDate(today.getDate() - today.getDay() + 1));
-            const weekStart = monday.toISOString().split('T')[0];
-
+            // Get current date and time
+            const now = new Date();
+            const today = now.toISOString().split('T')[0];
+            const currentTime = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+            
+            console.log('📅 Current Date:', today);
+            console.log('⏰ Current Time:', currentTime);
+            console.log('🕐 Current Time Object:', now);
+            console.log('📅 Scheduling from TODAY onwards, starting from', currentTime);
+            
             try {
                 const response = await fetch('/api/scheduler/generate-schedule', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         tasks,
-                        week_start: weekStart,
+                        week_start: today,
+                        current_time: currentTime,  // CRITICAL: Pass current time in HH:MM format
                         stress_score: stressData.stress_score,
                         stress_level: stressData.stress_level,
                         mood: 'neutral',
@@ -825,6 +832,9 @@
                 const data = await response.json();
 
                 if (data.status === 'success') {
+                    console.log('✅ Schedule generated successfully');
+                    console.log('🕐 Scheduling was done from:', data.schedule.scheduling_time_used || currentTime);
+                    
                     document.getElementById('step2').classList.add('completed');
                     document.getElementById('step3').classList.add('active');
                     displaySchedule(data.schedule);
@@ -834,6 +844,7 @@
                 }
             } catch (error) {
                 alert('Error: ' + error.message);
+                console.error('Schedule generation error:', error);
                 document.getElementById('taskSection').style.display = 'block';
             } finally {
                 document.getElementById('loading').style.display = 'none';

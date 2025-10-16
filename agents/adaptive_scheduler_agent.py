@@ -179,6 +179,8 @@ NOTE: For each task, calculate optimal duration based on:
 3. ALL tasks MUST be scheduled BEFORE their deadline
 4. If a deadline is impossible to meet, add to warnings
 5. Group similar tasks to reduce context switching
+6. if the person is too stress do not schdeule tasks at theat time.
+
 
 ═══════════════════════════════════════════════════════════════
 🚫 ABSOLUTE CONSTRAINTS
@@ -375,14 +377,23 @@ CRITICAL: Return ONLY valid JSON. No markdown, no extra text.
         schedule = []
         warnings = []
         week_date = datetime.strptime(week_start, '%Y-%m-%d')
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        
+
+        start_date = max(week_date, today)  # Start from today or later
         
         days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         
         task_index = 0
-        for day_offset, day_name in enumerate(days):
-            current_date = week_date + timedelta(days=day_offset)
+        for day_offset in range(7):
+            current_date = start_date + timedelta(days=day_offset)
             date_str = current_date.strftime('%Y-%m-%d')
-            
+            day_name = days[current_date.weekday()]
+
+            if current_date < today:
+                print(f"⏭️ Skipping {day_name} ({date_str}) - in the past")
+                continue
+
             day_schedule = {
                 'day': day_name,
                 'date': date_str,
