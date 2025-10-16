@@ -494,7 +494,7 @@ def get_activity_recommendations():
         print(f"🎨 Preferences: {preferences}")
         
         # Use Gemini AI to generate recommendations
-        if estimator.use_llm:
+        if flask_estimator.use_llm:
             print("🤖 Using Gemini AI for recommendations...")
             import google.generativeai as genai
             

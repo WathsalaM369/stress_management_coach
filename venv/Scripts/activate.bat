@@ -8,7 +8,7 @@ if defined _OLD_CODEPAGE (
     "%SystemRoot%\System32\chcp.com" 65001 > nul
 )
 
-set VIRTUAL_ENV=D:\SLIIT\Y3-S1\IRWA\stress management coach\stress_management_coach\venv
+set VIRTUAL_ENV=D:\Academic\SLIIT\Projects\stress_coach\venv
 
 if not defined PROMPT set PROMPT=$P$G
 
