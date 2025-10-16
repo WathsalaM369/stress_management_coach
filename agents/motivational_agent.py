@@ -37,7 +37,7 @@ class MotivationResponse(BaseModel):
 class MotivationalAgent:
     def __init__(self, use_gemini=True):
         self.use_gemini = use_gemini
-        self.gemini_client = None
+        self.gemini_model = None
         self.gemini_available = False
         self.audio_files = {}
         self.current_audio_path = None
@@ -47,11 +47,11 @@ class MotivationalAgent:
         # Test audio system first
         self._test_system_dependencies()
         
-        # Gemini configuration (EXACTLY same pattern as StressEstimator)
+        # Gemini configuration
         if use_gemini:
-            self.gemini_client = self._setup_gemini()
-            if self.gemini_client:
-                print("✅ Gemini client initialized successfully")
+            self.gemini_model = self._setup_gemini()
+            if self.gemini_model:
+                print("✅ Gemini model initialized successfully")
                 self.gemini_available = True
             else:
                 print("❌ Gemini setup failed, using fallback messages")
@@ -61,13 +61,14 @@ class MotivationalAgent:
         print(f"🤖 Gemini Status: {'Available' if self.gemini_available else 'Using Fallback Messages'}")
     
     def _setup_gemini(self):
-        """Setup Gemini client with EXACT same logic as StressEstimator"""
+        """Setup Gemini client with proper error handling"""
         try:
             load_dotenv()
             api_key = os.getenv('GOOGLE_API_KEY')
             
             if not api_key:
                 print("❌ GOOGLE_API_KEY not found in environment variables")
+                print("💡 Create a .env file with: GOOGLE_API_KEY=your_api_key_here")
                 return None
             
             print(f"🔑 API Key found: {api_key[:12]}...")
@@ -75,54 +76,62 @@ class MotivationalAgent:
             # Configure Gemini
             genai.configure(api_key=api_key)
             
-            # Get available models
-            print("🤖 Discovering available models...")
-            available_models = genai.list_models()
+            # Use specific model or default - CORRECTED MODEL NAMES
+            model_name = os.getenv('GEMINI_MODEL', 'models/gemini-2.0-flash-001')
+            print(f"🤖 Attempting to use Gemini model: {model_name}")
             
-            # Filter for Gemini text models
-            gemini_models = []
-            for model in available_models:
-                if 'gemini' in model.name.lower() and 'generateContent' in model.supported_generation_methods:
-                    gemini_models.append(model.name)
-                    print(f"   ✅ {model.name}")
-            
-            if not gemini_models:
-                print("❌ No compatible Gemini models found")
-                return None
-            
-            # Try models in order of preference (EXACTLY same as StressEstimator)
-            preferred_models = [
-                'models/gemini-2.0-flash-001',  # Fast and capable
-                'models/gemini-2.0-flash',      # Alternative flash
-                'models/gemini-2.5-flash',      # Latest flash
-                'models/gemini-2.5-pro',        # Pro version
-                'models/gemini-2.0-flash-lite-001',  # Lite version
+            # Try different model formats - CORRECTED LIST
+            model_variations = [
+                'models/gemini-2.0-flash-001',  # Your preferred model
+                'gemini-2.0-flash-001',
+                'models/gemini-2.0-flash',
+                'gemini-2.0-flash',
+                'models/gemini-1.5-flash',
+                'gemini-1.5-flash',
+                'models/gemini-1.5-pro', 
+                'gemini-1.5-pro',
+                'models/gemini-pro',
+                'gemini-pro'
             ]
             
-            # Filter to only available models
-            available_preferred = [model for model in preferred_models if model in gemini_models]
+            # Remove duplicates and ensure we try the preferred one first
+            model_variations = list(dict.fromkeys(model_variations))
             
-            if not available_preferred:
-                # Use first available Gemini model
-                model_name = gemini_models[0]
+            successful_model = None
+            for model_variant in model_variations:
+                try:
+                    print(f"🔄 Trying model: {model_variant}")
+                    model = genai.GenerativeModel(model_variant)
+                    
+                    # Test the connection with a simple prompt
+                    print("🧪 Testing API connection...")
+                    test_response = model.generate_content(
+                        "Say only 'SUCCESS'",
+                        generation_config=genai.types.GenerationConfig(
+                            temperature=0.7,
+                            max_output_tokens=10
+                        )
+                    )
+                    
+                    test_result = test_response.text.strip()
+                    print(f"✅ API test successful with {model_variant}! Response: '{test_result}'")
+                    successful_model = model
+                    break  # Stop at first successful model
+                    
+                except Exception as e:
+                    print(f"❌ Model {model_variant} failed: {str(e)}")
+                    continue
+            
+            if successful_model:
+                print(f"🎯 Successfully initialized with model: {model_variant}")
+                return successful_model
             else:
-                model_name = available_preferred[0]
-            
-            print(f"🤖 Using model: {model_name}")
-            
-            model = genai.GenerativeModel(model_name)
-            
-            # Test the connection
-            print("🧪 Testing API connection...")
-            test_response = model.generate_content("Say only the word 'SUCCESS'")
-            
-            test_result = test_response.text.strip()
-            print(f"✅ API test successful! Response: '{test_result}'")
-            
-            return model
+                print("❌ All model variations failed")
+                return None
             
         except Exception as e:
             print(f"❌ Error in Gemini setup: {str(e)}")
+            traceback.print_exc()
             return None
     
     def _test_system_dependencies(self):
@@ -165,14 +174,15 @@ class MotivationalAgent:
     
     def generate_motivation(self, request: MotivationRequest) -> MotivationResponse:
         """
-        Generate motivational message with Gemini fallback pattern
+        Generate motivational message with Gemini (fallback to templates if unavailable)
         """
         print(f"🎯 Generating motivation (Stress: {request.stress_level}, Category: {request.stress_category})")
         print(f"🤖 Gemini Available: {self.gemini_available}")
+        print(f"📝 User Message: {request.user_message}")
         
         try:
             # Use Gemini if available, otherwise fallback
-            if self.gemini_available and self.gemini_client:
+            if self.gemini_available and self.gemini_model:
                 print("🤖 Using Gemini for motivational message...")
                 motivational_text = self._gemini_motivation(request)
                 llm_used = True
@@ -183,20 +193,25 @@ class MotivationalAgent:
             
             # Generate audio if requested
             audio_path = None
+            audio_duration = None
             if request.generate_audio and motivational_text:
                 audio_path = self._generate_audio_simple(motivational_text, request.voice_gender)
+                if audio_path:
+                    # Estimate duration (rough calculation)
+                    audio_duration = len(motivational_text.split()) * 0.5
             
             return MotivationResponse(
                 motivational_message=motivational_text,
                 audio_file_path=audio_path,
                 success=True,
                 voice_used=request.voice_gender,
-                audio_duration=len(motivational_text.split()) * 0.5,
+                audio_duration=audio_duration,
                 llm_used=llm_used
             )
             
         except Exception as e:
             print(f"❌ Error in generate_motivation: {e}")
+            traceback.print_exc()
             # Always return a fallback message on error
             fallback_text = self._get_fallback_message(request.stress_category)
             return MotivationResponse(
@@ -209,34 +224,31 @@ class MotivationalAgent:
     def _gemini_motivation(self, request: MotivationRequest) -> str:
         """Generate motivational message using Gemini with proper error handling"""
         try:
+            # Build comprehensive prompt
             prompt = self._build_motivation_prompt(request)
             
-            system_instruction = """You are a compassionate, empathetic motivational coach. Create brief, supportive messages for people experiencing stress.
-
-CRITICAL REQUIREMENTS:
-- Keep it 1-2 sentences maximum
-- Sound warm and caring, like a supportive friend
-- Include one relevant emoji at the end
-- Be specific to the stress level and user's message
-- Focus on validation and support, not advice
-- Make it feel personal and genuine
-
-Return ONLY the motivational message text, nothing else."""
-
-            full_prompt = f"{system_instruction}\n\nUser Context:\n{prompt}"
-            
             print("📤 Sending motivation request to Gemini...")
-            response = self.gemini_client.generate_content(
-                full_prompt,
-                request_options={'timeout': 15}
+            print(f"📝 Prompt length: {len(prompt)} characters")
+            
+            # Generate content with Gemini
+            response = self.gemini_model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.8,  # More creative
+                    top_p=0.9,
+                    top_k=40,
+                    max_output_tokens=150,
+                    candidate_count=1
+                )
             )
             
+            # Extract text from response
             motivational_text = response.text.strip()
-            print("📨 Gemini motivation response received")
+            print(f"📨 Gemini raw response: {motivational_text}")
             
             # Validate response
             if self._validate_motivation_response(motivational_text):
-                print("✅ Gemini motivation validated")
+                print("✅ Gemini motivation validated successfully")
                 return motivational_text
             else:
                 print("❌ Gemini response invalid, using fallback")
@@ -244,61 +256,87 @@ Return ONLY the motivational message text, nothing else."""
                 
         except Exception as e:
             print(f"❌ Gemini motivation failed: {e}")
+            
             # Check for quota issues and disable if needed
-            if "quota" in str(e).lower() or "429" in str(e):
+            error_str = str(e).lower()
+            if "quota" in error_str or "429" in error_str or "resource_exhausted" in error_str:
                 print("❌ Gemini quota exceeded - switching to fallback")
                 self.gemini_available = False
+            elif "not found" in error_str:
+                print("❌ Model not found - check model name")
+                self.gemini_available = False
+            
             return self._fallback_motivation(request)
     
     def _build_motivation_prompt(self, request: MotivationRequest) -> str:
-        """Build detailed motivation prompt"""
-        prompt_parts = [
-            "USER STRESS CONTEXT:",
-            f"Stress Level: {request.stress_level}/10",
-            f"Stress Category: {request.stress_category}",
-            f"User Message: '{request.user_message}'",
-            "",
-            "PERSONALIZATION CONTEXT:",
-            f"Voice Preference: {request.voice_gender}",
-            f"User Preferences: {request.user_preferences or 'Not specified'}",
-            "",
-            "MESSAGE REQUIREMENTS:",
-            "- 1-2 sentences maximum",
-            "- Warm, empathetic tone",
-            "- Include one relevant emoji",
-            "- Validate their feelings",
-            "- Offer genuine support",
-            "- Sound like a caring friend"
-        ]
+        """Build detailed motivation prompt for Gemini"""
         
-        # Add stress-level specific guidance
+        # Define stress-level specific guidance
         stress_guidance = {
-            "Low": "Focus on encouragement and celebrating their awareness",
-            "Medium": "Acknowledge the challenge while reinforcing their strength",
-            "High": "Offer comfort and presence, validate the difficulty",
-            "Very High": "Provide calming reassurance and emotional support", 
-            "Chronic High": "Acknowledge their endurance and ongoing strength"
+            "Low": "Focus on encouragement and celebrating their self-awareness. Keep it light and uplifting.",
+            "Medium": "Acknowledge the challenge while reinforcing their strength. Balance empathy with encouragement.",
+            "High": "Offer comfort and presence. Validate the difficulty and provide emotional support.",
+            "Very High": "Provide calming reassurance and deep emotional support. Make them feel heard and not alone.", 
+            "Chronic High": "Acknowledge their endurance and ongoing strength. Honor their resilience through sustained difficulty."
         }
         
         guidance = stress_guidance.get(request.stress_category, "Provide warm, empathetic support")
-        prompt_parts.append(f"SPECIFIC GUIDANCE: {guidance}")
         
-        return "\n".join(prompt_parts)
+        prompt = f"""Create a brief, supportive motivational message for someone experiencing stress.
+
+CONTEXT:
+- Stress Level: {request.stress_level}/10 ({request.stress_category})
+- What they shared: "{request.user_message}"
+
+GUIDELINES:
+{guidance}
+
+REQUIREMENTS:
+• 1-2 sentences maximum (be concise)
+• Warm, caring, supportive tone
+• Include one relevant emoji at the end  
+• Validate their feelings
+• Sound genuine and personal
+• Focus on emotional support, not advice
+
+IMPORTANT: Return ONLY the motivational message text, nothing else. No explanations."""
+
+        return prompt
     
     def _validate_motivation_response(self, text: str) -> bool:
         """Validate that the Gemini response meets requirements"""
         if not text or len(text.strip()) < 10:
+            print("❌ Response too short or empty")
             return False
         
-        # Check for reasonable length (1-2 sentences)
-        sentences = text.split('.')
-        if len(sentences) > 3:  # Too long
+        # Check for reasonable length
+        word_count = len(text.split())
+        if word_count > 60:  # Too long
+            print(f"❌ Response too long: {word_count} words")
+            return False
+        if word_count < 5:   # Too short
+            print(f"❌ Response too short: {word_count} words")
             return False
         
+        # Check if it looks like an error message or meta-commentary
+        error_indicators = [
+            "i cannot", "i can't", "i'm unable", "as an ai",
+            "i apologize", "sorry", "i don't have", "i am not",
+            "cannot create", "unable to", "here is", "the following"
+        ]
+        
+        text_lower = text.lower()
+        for indicator in error_indicators:
+            if indicator in text_lower:
+                print(f"❌ Response contains error indicator: {indicator}")
+                return False
+        
+        print(f"✅ Response validated: {word_count} words")
         return True
     
     def _fallback_motivation(self, request: MotivationRequest) -> str:
-        """Fallback motivational messages (same as your reliable version)"""
+        """Fallback motivational messages"""
+        print("🔄 Falling back to template messages")
         return self._get_fallback_message(request.stress_category)
     
     def _get_fallback_message(self, stress_category: str) -> str:
@@ -308,7 +346,7 @@ Return ONLY the motivational message text, nothing else."""
                 "You're doing amazing! Keep shining ✨",
                 "So proud of you for taking care of yourself! 🌟",
                 "You've got this! Your energy is inspiring 💫",
-                "Every small step counts - you're making good progress! 🎯",
+                "Every small step counts - you're making great progress! 🎯",
                 "Your positive energy is contagious! Keep going! 🌈"
             ],
             "Medium": [
@@ -340,18 +378,18 @@ Return ONLY the motivational message text, nothing else."""
                 "Through all the difficult days, you continue to show such strength 🦁"
             ],
             "default": [
-                "I'm here for you. Take a deep breath. You've got this.💫",
-                "You're not alone in this. I'm right here with you. 🤝",
-                "However you're feeling right now is valid. I'm listening. 👂",
-                "You're doing the best you can, and that's always enough. 💚",
-                "I believe in you and your ability to get through this. 🌟"
+                "I'm here for you. Take a deep breath. You've got this 💫",
+                "You're not alone in this. I'm right here with you 🤝",
+                "However you're feeling right now is valid. I'm listening 👂",
+                "You're doing the best you can, and that's always enough 💚",
+                "I believe in you and your ability to get through this 🌟"
             ]
         }
         
         import random
         messages = fallback_messages.get(stress_category, fallback_messages["default"])
         selected = random.choice(messages)
-        print("✅ Using carefully crafted fallback message")
+        print(f"✅ Using fallback message: {selected}")
         return selected
     
     def _generate_audio_simple(self, text: str, voice_gender: str) -> str:
@@ -390,6 +428,7 @@ Return ONLY the motivational message text, nothing else."""
                 
         except Exception as e:
             print(f"❌ Audio generation failed: {e}")
+            traceback.print_exc()
             return None
     
     def play_audio(self, audio_path: str) -> bool:
@@ -415,7 +454,6 @@ Return ONLY the motivational message text, nothing else."""
                 pygame.mixer.music.play()
                 
                 # Check if playing
-                import time
                 time.sleep(0.5)
                 
                 if pygame.mixer.music.get_busy():
@@ -467,18 +505,51 @@ Return ONLY the motivational message text, nothing else."""
         except:
             return False
     
+    def test_gemini_directly(self):
+        """Test Gemini directly to see if it works"""
+        print("\n" + "="*50)
+        print("🧪 DIRECT GEMINI TEST")
+        print("="*50)
+        
+        if not self.gemini_available:
+            print("❌ Gemini not available")
+            return
+        
+        try:
+            # Test with a simple prompt
+            test_prompt = "Create a short motivational message for someone feeling stressed. Include one emoji."
+            print(f"📤 Testing with prompt: {test_prompt}")
+            
+            response = self.gemini_model.generate_content(
+                test_prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.8,
+                    max_output_tokens=100
+                )
+            )
+            
+            print(f"📨 Direct test response: {response.text}")
+            print("✅ Direct Gemini test successful!")
+            
+        except Exception as e:
+            print(f"❌ Direct Gemini test failed: {e}")
+            traceback.print_exc()
+    
     def test_system(self):
         """Test the complete system"""
         print("\n" + "="*50)
         print("🧪 MOTIVATIONAL AGENT SYSTEM TEST")
         print("="*50)
         
+        # First test Gemini directly
+        self.test_gemini_directly()
+        
         # Test with different stress levels
         test_cases = [
             ("Low", 3.0, "I'm feeling pretty good today"),
             ("Medium", 5.5, "Work is getting a bit stressful"),
-            ("High", 7.5, "I'm feeling really overwhelmed"),
-            ("Very High", 9.0, "I don't know how to handle this"),
+            ("High", 7.5, "I'm feeling really overwhelmed with deadlines"),
+            ("Very High", 9.0, "I don't know how to handle this pressure"),
         ]
         
         for stress_category, stress_level, user_message in test_cases:
@@ -488,13 +559,14 @@ Return ONLY the motivational message text, nothing else."""
                 stress_level=stress_level,
                 stress_category=stress_category,
                 user_message=user_message,
-                voice_gender="female"
+                voice_gender="female",
+                generate_audio=False  # Disable audio for testing
             )
             
             response = self.generate_motivation(request)
             print(f"✅ Message: {response.motivational_message}")
             print(f"✅ LLM Used: {response.llm_used}")
-            print(f"✅ Audio: {'Generated' if response.audio_file_path else 'Not generated'}")
+            print(f"✅ Success: {response.success}")
         
         print("\n" + "="*50)
         print("🎉 MOTIVATIONAL AGENT TEST COMPLETED")
