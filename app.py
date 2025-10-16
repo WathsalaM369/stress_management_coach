@@ -174,8 +174,6 @@ async def root():
 async def health_check():
     return {"status": "healthy"}
 
-# Flask Routes (Wathsala's endpoints)
-@flask_app.route('/api/register', methods=['POST'])
 def get_current_user_id():
     """Get current user ID or create temporary one"""
     user_id = session.get('user_id')
@@ -670,8 +668,12 @@ Make activities practical, evidence-based, and immediately actionable. Focus on 
 
 @flask_app.route('/api/register', methods=['POST'])
 def register():
+    """User registration endpoint"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+            
         username = data.get('username')
         password = data.get('password')
         email = data.get('email')
@@ -710,8 +712,12 @@ def register():
 
 @flask_app.route('/api/login', methods=['POST'])
 def login():
+    """User login endpoint"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+            
         username = data.get('username')
         password = data.get('password')
 
@@ -741,6 +747,7 @@ def login():
 
 @flask_app.route('/api/logout', methods=['POST'])
 def logout():
+    """User logout endpoint"""
     username = session.get('username')
     session.clear()
     print(f"✅ User logged out: {username}")
@@ -748,6 +755,7 @@ def logout():
 
 @flask_app.route('/api/current-user', methods=['GET'])
 def get_current_user():
+    """Get current user session"""
     user_id = session.get('user_id')
     username = session.get('username')
     
@@ -762,6 +770,7 @@ def get_current_user():
     else:
         return jsonify({"logged_in": False})
 
+# ✅ Helper function (NOT a route)
 def get_current_user_id():
     """Get current user ID or create temporary one"""
     user_id = session.get('user_id')
