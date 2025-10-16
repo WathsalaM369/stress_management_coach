@@ -6,6 +6,15 @@ from flask_cors import CORS
 import uvicorn
 from dotenv import load_dotenv
 import os
+import requests
+import json
+import secrets
+import hashlib
+import google.generativeai as genai
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Float
+from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import sessionmaker
+from datetime import datetime, timedelta
 
 # Load environment variables from .env file
 load_dotenv()
@@ -69,19 +78,6 @@ from config import Config
 from agents.activity_recommender_flask import activity_bp
 from agents.stress_estimator import StressEstimator
 from agents.adaptive_scheduler_agent import scheduler_agent
-from datetime import datetime, timedelta
-<<<<<<< HEAD
-=======
-import requests
-import json
-import os
->>>>>>> 3177094ff4afecf5ea5c39debf536937c04b4b9a
-import secrets
-import hashlib
-import google.generativeai as genai
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Float
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import sessionmaker
 
 # FastAPI App (Vinusha's version)
 fastapi_app = FastAPI(title="Stress Management Coach API")
@@ -1622,7 +1618,7 @@ def test_endpoint():
         "message": "Backend is working!",
         "timestamp": datetime.now().isoformat(),
         "status": "success",
-        "gemini_enabled": estimator.use_llm,
+        "gemini_enabled": flask_estimator.use_llm,
         "has_api_key": bool(os.getenv('GOOGLE_API_KEY'))
     })
 
