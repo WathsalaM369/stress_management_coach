@@ -613,74 +613,122 @@
                 </div>
             </section>
 
-            <!-- Motivation Section -->
-            <section class="motivation-section" id="motivationSection" style="display: none;">
-                <div class="motivation-container">
-                    <div class="motivation-header">
-                        <div class="coach-avatar">💫</div>
-                        <h2>Your Personal Motivation Coach</h2>
-                        <div class="stress-badge">Stress Level: <span id="motivationStressLevel">0</span>/10</div>
-                    </div>
+           <!-- Motivation Section -->
+<section class="motivation-section" id="motivationSection" style="display: none;">
+    <div class="motivation-container">
+        <!-- Header Section -->
+        <div class="motivation-header">
+            <div class="header-content">
+                <div class="coach-avatar avatar-animation" id="coachAvatar">👩</div>
+                <h2>Your Personal Motivation Coach</h2>
+                <div class="stress-badge" id="stressBadge">Stress Level: <span id="motivationStressLevel">0</span>/10</div>
+            </div>
+        </div>
 
-                    <div class="motivation-content">
-                        <div class="message-container">
-                            <div class="typing-indicator" id="typingIndicator">
-                                Your coach is crafting a personalized message...
-                            </div>
-                            <div class="motivation-text" id="motivationText">
-                                <!-- Message will appear here -->
-                            </div>
-                        </div>
-
-                        <div class="audio-controls">
-                            <button class="play-button" id="playButton" onclick="toggleAudio()">
-                                <span>🔊</span>
-                                <span id="playText">Listen to Message</span>
-                            </button>
-                            <div class="audio-visualizer">
-                                <div class="audio-wave" id="audioWave"></div>
-                            </div>
-                        </div>
-
-                        <div class="actions-grid">
-                            <div class="action-card" onclick="startBreathingExercise()">
-                                <span class="action-icon">🌬️</span>
-                                <strong>Breathe</strong>
-                                <small>2-minute calm</small>
-                            </div>
-                            <div class="action-card" onclick="showAffirmations()">
-                                <span class="action-icon">💝</span>
-                                <strong>Affirmations</strong>
-                                <small>Positive boost</small>
-                            </div>
-                            <div class="action-card" onclick="saveMotivation()">
-                                <span class="action-icon">💾</span>
-                                <strong>Save</strong>
-                                <small>Keep this message</small>
-                            </div>
-                            <div class="action-card" onclick="goBackToResults()">
-                                <span class="action-icon">📊</span>
-                                <strong>Back to Results</strong>
-                                <small>View analysis</small>
-                            </div>
-                        </div>
-
-                        <div class="breathing-exercise" id="breathingExercise" style="display: none;">
-                            <h3>🌬️ Breathing Exercise</h3>
-                            <p>Follow the circle - Breathe in as it expands, out as it contracts</p>
-                            <div class="breathing-circle">Breathe</div>
-                            <button class="btn-primary" onclick="stopBreathingExercise()">I feel calmer</button>
-                        </div>
-
-                        <div class="next-steps">
-                            <button class="btn-primary" onclick="generateNewMotivation()">
-                                🔄 Get New Motivation
-                            </button>
-                        </div>
+        <!-- Main Content -->
+        <div class="motivation-content">
+            <!-- Voice Selection -->
+            <div class="voice-selection">
+                <h3>🎵 Choose Your Coach's Voice</h3>
+                <p>Select the voice that feels most comforting to you</p>
+                <div class="voice-options">
+                    <div class="voice-option active" data-voice="female" onclick="selectVoice('female')">
+                        <span class="voice-icon">👩</span>
+                        <strong>Female Voice</strong>
+                        <small>Warm & comforting</small>
                     </div>
                 </div>
-            </section>
+            </div>
+
+            <!-- Motivational Message -->
+            <div class="message-container">
+                <div class="typing-indicator" id="typingIndicator">
+                    Your coach is crafting a personalized message...
+                </div>
+                <div class="motivation-text" id="motivationText">
+                    <!-- Message will be inserted here -->
+                </div>
+            </div>
+
+            <!-- Audio Controls -->
+            <div class="audio-controls">
+                <button class="play-button" id="playButton" onclick="toggleAudio()" disabled>
+                    <span id="playIcon">▶️</span>
+                    <span id="playText">Play Message</span>
+                </button>
+                <div class="audio-progress">
+                    <span class="progress-time" id="currentTime">0:00</span>
+                    <div class="progress-bar-container" id="progressBarContainer">
+                        <div class="progress-bar-fill" id="progressBarFill"></div>
+                        <div class="progress-bar-handle" id="progressBarHandle"></div>
+                    </div>
+                    <span class="progress-time" id="durationTime">0:00</span>
+                </div>
+                <div id="currentVoice" style="font-size: 0.9rem; color: #666;">
+                    👩 Female
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="actions-grid">
+                <div class="action-card" onclick="startBreathingExercise()">
+                    <span class="action-icon">🌬️</span>
+                    <strong>Breathe</strong>
+                    <small>2-minute calm</small>
+                </div>
+                <div class="action-card" onclick="showAffirmations()">
+                    <span class="action-icon">💝</span>
+                    <strong>Affirmations</strong>
+                    <small>Positive boost</small>
+                </div>
+                <div class="action-card" onclick="saveMotivation()">
+                    <span class="action-icon">💾</span>
+                    <strong>Save</strong>
+                    <small>Keep this message</small>
+                </div>
+                <div class="action-card" onclick="goBackToResults()">
+                    <span class="action-icon">📊</span>
+                    <strong>Back to Results</strong>
+                    <small>View analysis</small>
+                </div>
+            </div>
+
+            <!-- Breathing Exercise -->
+            <div class="breathing-exercise" id="breathingExercise" style="display: none;">
+                <h3>🌬️ Breathing Exercise</h3>
+                <p>Follow the circle - Breathe in as it expands, out as it contracts</p>
+                <div class="breathing-circle" id="breathingCircle">Breathe</div>
+                <button class="btn-primary" onclick="stopBreathingExercise()">I feel calmer</button>
+            </div>
+
+            <!-- Next Steps -->
+           <button class="btn-primary" onclick="generateNewMotivation()" style="
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 16px 32px;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: block;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    font-weight: 600;
+    width: fit-content;
+    margin: 0 auto;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+">
+    🔄 Get New Motivation
+</button>
+                <p style="margin-top: 20px; color: #666; font-size: 1.1rem; text-align: center; font-weight: 500; line-height: 1.5;">
+    Your motivation coach is here whenever you need support
+</p>
+            </div>
         </div>
+    </div>
+</section>
 
         <!-- Button to direct activity recommender - Senuthi's part -->
         <div style="text-align: center; margin: 30px 0; display: flex; justify-content: center; gap: 20px; align-items: center;">

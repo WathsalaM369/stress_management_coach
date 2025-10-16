@@ -1800,36 +1800,63 @@ input:focus-visible,
 
 /*Vinusha*/
 /* Motivation Section Styles */
-.motivation-section {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-.motivation-container {
-    background: white;
-    border-radius: 20px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-    overflow: hidden;
-}
-
+/* Motivation Section Styles */
 .motivation-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
     color: white;
     padding: 30px;
     text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.motivation-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+    animation: float 20s infinite linear;
+}
+
+.header-content {
+    position: relative;
+    z-index: 2;
 }
 
 .coach-avatar {
-    width: 80px;
-    height: 80px;
+    width: 120px;
+    height: 120px;
     background: white;
     border-radius: 50%;
     margin: 0 auto 15px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2rem;
+    font-size: 3.5rem;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    transition: transform 0.3s ease;
+}
+
+.coach-avatar:hover {
+    transform: scale(1.05);
+}
+
+.avatar-animation {
+    animation: bounce 2s infinite ease-in-out;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes float {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .stress-badge {
@@ -1839,29 +1866,79 @@ input:focus-visible,
     border-radius: 20px;
     margin-top: 10px;
     font-size: 0.9rem;
+    backdrop-filter: blur(10px);
 }
 
-.motivation-content {
-    padding: 30px;
+.voice-selection {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-left: 5px solid #667eea;
+}
+
+.voice-options {
+    display: flex;
+    gap: 15px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+
+.voice-option {
+    flex: 1;
+    min-width: 120px;
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 15px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.voice-option:hover {
+    border-color: #667eea;
+    transform: translateY(-2px);
+}
+
+.voice-option.active {
+    border-color: #667eea;
+    background: #667eea;
+    color: white;
+}
+
+.voice-icon {
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+    display: block;
 }
 
 .message-container {
     background: #f8f9fa;
     border-radius: 15px;
-    padding: 25px;
-    margin-bottom: 20px;
+    padding: 30px;
+    margin-bottom: 30px;
     border-left: 5px solid #667eea;
+    position: relative;
+    min-height: 120px;
 }
 
 .typing-indicator {
+    display: none;
     font-style: italic;
     color: #666;
 }
 
 .motivation-text {
-    font-size: 1.1rem;
+    font-size: 1.2rem;
     line-height: 1.6;
     color: #333;
+    opacity: 0;
+    animation: fadeIn 0.5s ease-out 0.3s forwards;
+}
+
+@keyframes fadeIn {
+    to { opacity: 1; }
 }
 
 .audio-controls {
@@ -1884,37 +1961,76 @@ input:focus-visible,
     display: flex;
     align-items: center;
     gap: 8px;
-    transition: background 0.3s ease;
+    font-size: 1rem;
+    transition: all 0.3s ease;
 }
 
 .play-button:hover {
     background: #5a6fd8;
+    transform: translateY(-2px);
 }
 
 .play-button.playing {
     background: #ee5a24;
 }
 
-.audio-visualizer {
-    flex: 1;
-    height: 4px;
-    background: #ddd;
-    border-radius: 2px;
-    overflow: hidden;
+.play-button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
 }
 
-.audio-wave {
+.audio-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.progress-time {
+    font-size: 0.8rem;
+    color: #666;
+    min-width: 40px;
+}
+
+.progress-bar-container {
+    flex: 1;
+    height: 6px;
+    background: #ddd;
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+}
+
+.progress-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #667eea, #764ba2);
+    background: #667eea;
+    border-radius: 3px;
     width: 0%;
-    transition: width 0.1s ease;
+    transition: width 0.1s linear;
+}
+
+.progress-bar-handle {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    background: #667eea;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.progress-bar-container:hover .progress-bar-handle {
+    opacity: 1;
 }
 
 .actions-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 15px;
-    margin: 25px 0;
+    margin: 30px 0;
 }
 
 .action-card {
@@ -1925,11 +2041,14 @@ input:focus-visible,
     text-align: center;
     cursor: pointer;
     transition: all 0.3s ease;
+    text-decoration: none;
+    color: inherit;
 }
 
 .action-card:hover {
     border-color: #667eea;
-    transform: translateY(-2px);
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.15);
 }
 
 .action-icon {
@@ -1938,13 +2057,43 @@ input:focus-visible,
     display: block;
 }
 
+.progress-section {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 25px;
+    margin-top: 20px;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.progress-bar {
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff6b6b, #ee5a24);
+    border-radius: 4px;
+    transition: width 1s ease;
+}
+
 .breathing-exercise {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 25px;
+    padding: 30px;
     border-radius: 15px;
     text-align: center;
     margin: 20px 0;
+    display: none;
 }
 
 .breathing-circle {
@@ -1956,7 +2105,7 @@ input:focus-visible,
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2rem;
+    font-size: 1.5rem;
     animation: breathe 4s infinite ease-in-out;
 }
 
@@ -1965,7 +2114,330 @@ input:focus-visible,
     50% { transform: scale(1.2); }
 }
 
-.next-steps {
-    text-align: center;
-    margin-top: 20px;
+.achievement-badge {
+    background: gold;
+    color: #333;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: bold;
+    margin: 10px 5px;
+    display: inline-block;
+    animation: popIn 0.5s ease-out;
 }
+
+@keyframes popIn {
+    0% { transform: scale(0); }
+    70% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.next-steps {
+    margin-top: 30px;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .voice-options {
+        flex-direction: column;
+    }
+    
+    .audio-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .actions-grid {
+        grid-template-columns: 1fr;
+    }
+.motivation-header {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+    color: white;
+    padding: 30px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.motivation-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+    animation: float 20s infinite linear;
+}
+
+.header-content {
+    position: relative;
+    z-index: 2;
+}
+
+.coach-avatar {
+    width: 120px;
+    height: 120px;
+    background: white;
+    border-radius: 50%;
+    margin: 0 auto 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3.5rem;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    transition: transform 0.3s ease;
+}
+
+.coach-avatar:hover {
+    transform: scale(1.05);
+}
+
+.avatar-animation {
+    animation: bounce 2s infinite ease-in-out;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes float {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.stress-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.2);
+    padding: 8px 16px;
+    border-radius: 20px;
+    margin-top: 10px;
+    font-size: 0.9rem;
+    backdrop-filter: blur(10px);
+}
+
+/* REMOVED: Voice selection section completely */
+
+.message-container {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 30px;
+    margin-bottom: 30px;
+    border-left: 5px solid #667eea;
+    position: relative;
+    min-height: 120px;
+}
+
+.typing-indicator {
+    display: none;
+    font-style: italic;
+    color: #666;
+}
+
+.motivation-text {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    color: #333;
+    opacity: 0;
+    animation: fadeIn 0.5s ease-out 0.3s forwards;
+}
+
+@keyframes fadeIn {
+    to { opacity: 1; }
+}
+
+.audio-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin: 20px 0;
+    padding: 15px;
+    background: #e9ecef;
+    border-radius: 10px;
+}
+
+.play-button {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 25px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.play-button:hover {
+    background: #5a6fd8;
+    transform: translateY(-2px);
+}
+
+.play-button.playing {
+    background: #ee5a24;
+}
+
+.play-button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.audio-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.progress-time {
+    font-size: 0.8rem;
+    color: #666;
+    min-width: 40px;
+}
+
+.progress-bar-container {
+    flex: 1;
+    height: 6px;
+    background: #ddd;
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: #667eea;
+    border-radius: 3px;
+    width: 0%;
+    transition: width 0.1s linear;
+}
+
+.progress-bar-handle {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    background: #667eea;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.progress-bar-container:hover .progress-bar-handle {
+    opacity: 1;
+}
+
+.actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin: 30px 0;
+}
+
+.action-card {
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 15px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    color: inherit;
+}
+
+.action-card:hover {
+    border-color: #667eea;
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(102, 126, 234, 0.15);
+}
+
+.action-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    display: block;
+}
+
+/* REMOVED: Progress section completely */
+
+.breathing-exercise {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 30px;
+    border-radius: 15px;
+    text-align: center;
+    margin: 20px 0;
+    display: none;
+}
+
+.breathing-circle {
+    width: 100px;
+    height: 100px;
+    border: 3px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    margin: 20px auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    animation: breathe 4s infinite ease-in-out;
+}
+
+@keyframes breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
+
+/* REMOVED: Achievement badges */
+
+.next-steps {
+    margin-top: 30px;
+    text-align: center;
+}
+
+/* Smaller "Get New Motivation" button */
+.btn-primary {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 18px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    font-weight: 500;
+    width: auto;
+    min-width: auto;
+    margin: 0 auto;
+}
+
+.btn-primary:hover {
+    background: #5a6fd8;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
+}
+
+@media (max-width: 768px) {
+    .audio-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .actions-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .btn-primary {
+        padding: 8px 16px;
+        font-size: 0.85rem;
+    }
+}}

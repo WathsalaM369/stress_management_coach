@@ -74,16 +74,21 @@
         }
 
         .coach-avatar {
-            width: 80px;
-            height: 80px;
+            width: 120px;
+            height: 120px;
             background: white;
             border-radius: 50%;
             margin: 0 auto 15px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 2rem;
+            font-size: 3.5rem;
             box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .coach-avatar:hover {
+            transform: scale(1.05);
         }
 
         .stress-badge {
@@ -272,7 +277,7 @@
 
         .progress-header {
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
         }
@@ -358,6 +363,63 @@
             100% { transform: scale(1); }
         }
 
+        /* Avatar Animation */
+        .avatar-animation {
+            animation: bounce 2s infinite ease-in-out;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* Audio Progress */
+        .audio-progress {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .progress-time {
+            font-size: 0.8rem;
+            color: #666;
+            min-width: 40px;
+        }
+
+        .progress-bar-container {
+            flex: 1;
+            height: 6px;
+            background: #ddd;
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: #667eea;
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .progress-bar-handle {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 12px;
+            height: 12px;
+            background: #667eea;
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .progress-bar-container:hover .progress-bar-handle {
+            opacity: 1;
+        }
+
         @media (max-width: 768px) {
             .motivation-content {
                 padding: 20px;
@@ -382,7 +444,7 @@
         <!-- Header Section -->
         <div class="motivation-header">
             <div class="header-content">
-                <div class="coach-avatar">💫</div>
+                <div class="coach-avatar avatar-animation" id="coachAvatar">👩</div>
                 <h1>Your Personal Motivation Coach</h1>
                 <div class="stress-badge" id="stressBadge">Stress Level: <span id="stressLevel">0</span>/10</div>
             </div>
@@ -421,11 +483,16 @@
             <!-- Audio Controls -->
             <div class="audio-controls">
                 <button class="play-button" id="playButton" onclick="toggleAudio()" disabled>
-                    <span>🔊</span>
-                    <span id="playText">Listen to Message</span>
+                    <span id="playIcon">▶️</span>
+                    <span id="playText">Play Message</span>
                 </button>
-                <div class="audio-visualizer">
-                    <div class="audio-wave" id="audioWave"></div>
+                <div class="audio-progress">
+                    <span class="progress-time" id="currentTime">0:00</span>
+                    <div class="progress-bar-container" id="progressBarContainer">
+                        <div class="progress-bar-fill" id="progressBarFill"></div>
+                        <div class="progress-bar-handle" id="progressBarHandle"></div>
+                    </div>
+                    <span class="progress-time" id="durationTime">0:00</span>
                 </div>
                 <div id="currentVoice" style="font-size: 0.9rem; color: #666;">
                     👩 Female
@@ -439,7 +506,7 @@
                     <strong>Breathe</strong>
                     <small>2-minute calm</small>
                 </div>
-                <a href="stress_tracker.html" class="action-card">
+                <a href="#" class="action-card" onclick="return false;">
                     <span class="action-icon">📊</span>
                     <strong>Track Again</strong>
                     <small>New assessment</small>
@@ -496,6 +563,13 @@
         let isPlaying = false;
         let motivationData = null;
         let currentVoice = "female"; // Default voice
+        let audioElement = null;
+        let progressInterval = null;
+        let avatarElements = {
+            female: ["👩", "👩‍💼", "👩‍🎓", "👩‍🔬", "👩‍🚀", "👸", "💁‍♀️", "🧚‍♀️"],
+            male: ["👨", "👨‍💼", "👨‍🎓", "👨‍🔬", "👨‍🚀", "🤴", "💁‍♂️", "🧚‍♂️"]
+        };
+        let currentAvatarIndex = 0;
 
         // Voice selection function
         function selectVoice(voice) {
@@ -515,7 +589,20 @@
                 voiceIndicator.innerHTML = '👨 Male';
             }
             
+            // Update avatar
+            updateAvatar();
+            
             console.log(`Voice set to: ${voice}`);
+        }
+
+        // Update avatar based on selected voice
+        function updateAvatar() {
+            const avatar = document.getElementById('coachAvatar');
+            const avatars = avatarElements[currentVoice];
+            
+            // Cycle through avatars
+            currentAvatarIndex = (currentAvatarIndex + 1) % avatars.length;
+            avatar.textContent = avatars[currentAvatarIndex];
         }
 
         // Initialize the motivation interface
@@ -534,32 +621,53 @@
         // Generate motivational message using your Python backend
         async function generateMotivationalMessage(stressLevel, stressCategory, userMessage, voiceGender) {
             try {
-                const response = await fetch('/api/generate-motivation', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        stress_level: stressLevel,
-                        stress_category: stressCategory,
-                        user_message: userMessage,
-                        generate_audio: true,
-                        voice_gender: voiceGender
-                    })
-                });
-
-                const data = await response.json();
-                motivationData = data;
+                // Simulate API call with timeout
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Sample motivational messages based on stress level
+                const messages = {
+                    low: [
+                        "You're doing amazing! Keep up the great energy and positive mindset.",
+                        "Your calm and focused approach is truly inspiring. Keep shining!",
+                        "You've got this! Your positive energy is contagious and uplifting."
+                    ],
+                    medium: [
+                        "It's okay to feel a little overwhelmed sometimes. Take a deep breath and remember how capable you are.",
+                        "You're stronger than you think. Every challenge is an opportunity to grow.",
+                        "Progress, not perfection. Every small step forward is a victory worth celebrating."
+                    ],
+                    high: [
+                        "I know things feel heavy right now, but you've overcome challenges before and you will again.",
+                        "Be gentle with yourself today. You're doing the best you can, and that is enough.",
+                        "This moment is temporary. You have the strength to get through this, one breath at a time."
+                    ]
+                };
+                
+                // Determine message category based on stress level
+                let category;
+                if (stressLevel <= 3) category = "low";
+                else if (stressLevel <= 7) category = "medium";
+                else category = "high";
+                
+                // Select random message from category
+                const messageArray = messages[category];
+                const randomMessage = messageArray[Math.floor(Math.random() * messageArray.length)];
+                
+                motivationData = {
+                    motivational_message: randomMessage,
+                    voice_used: voiceGender,
+                    audio_file_path: "sample_audio.mp3" // This would come from your backend
+                };
 
                 // Display the message
-                displayMotivationalMessage(data.motivational_message);
+                displayMotivationalMessage(motivationData.motivational_message);
                 
                 // Update progress
                 updateUserProgress(stressLevel);
                 
                 // Update voice indicator with actual voice used
                 const voiceIndicator = document.getElementById('currentVoice');
-                if (data.voice_used === 'female') {
+                if (motivationData.voice_used === 'female') {
                     voiceIndicator.innerHTML = '👩 Female';
                 } else {
                     voiceIndicator.innerHTML = '👨 Male';
@@ -586,9 +694,26 @@
             
             // Add audio file path if available
             if (motivationData && motivationData.audio_file_path) {
-                currentAudio = motivationData.audio_file_path;
+                // Create audio element for playback
+                if (!audioElement) {
+                    audioElement = new Audio();
+                    audioElement.addEventListener('loadedmetadata', function() {
+                        document.getElementById('durationTime').textContent = formatTime(audioElement.duration);
+                    });
+                    audioElement.addEventListener('timeupdate', updateProgressBar);
+                    audioElement.addEventListener('ended', resetAudioControls);
+                    
+                    // Set up progress bar interaction
+                    const progressBarContainer = document.getElementById('progressBarContainer');
+                    progressBarContainer.addEventListener('click', seekAudio);
+                }
+                
+                // In a real implementation, this would be the actual audio file from your backend
+                // For demo purposes, we'll use a placeholder
+                audioElement.src = "https://www.soundjay.com/button/beep-07.wav";
+                
                 playButton.disabled = false;
-                playButton.title = "Click to listen to the message";
+                playButton.title = "Click to play the message";
             } else {
                 playButton.disabled = true;
                 playButton.title = "Audio not available";
@@ -596,72 +721,99 @@
         }
 
         // Toggle audio playback
-        async function toggleAudio() {
+        function toggleAudio() {
             const playButton = document.getElementById('playButton');
             const playText = document.getElementById('playText');
-            const audioWave = document.getElementById('audioWave');
+            const playIcon = document.getElementById('playIcon');
 
-            if (!isPlaying && currentAudio) {
+            if (!isPlaying) {
                 // Start playing
                 playButton.classList.add('playing');
                 playText.textContent = 'Playing...';
+                playIcon.textContent = '⏸️';
                 isPlaying = true;
                 
-                try {
-                    // Call the play-audio endpoint
-                    const response = await fetch('/api/play-audio', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            audio_path: currentAudio
-                        })
-                    });
-
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        // Simulate audio visualization
-                        animateAudioWave(audioWave);
-                    } else {
-                        console.error('Audio playback failed:', result.error);
-                        resetAudioControls();
-                    }
-                } catch (error) {
-                    console.error('Error playing audio:', error);
-                    resetAudioControls();
+                if (audioElement) {
+                    audioElement.play();
+                    startProgressTracking();
                 }
-                
             } else {
-                resetAudioControls();
+                // Pause playing
+                playButton.classList.remove('playing');
+                playText.textContent = 'Play Message';
+                playIcon.textContent = '▶️';
+                isPlaying = false;
+                
+                if (audioElement) {
+                    audioElement.pause();
+                    stopProgressTracking();
+                }
             }
         }
 
-        function animateAudioWave(audioWave) {
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += 2;
-                audioWave.style.transform = `scaleX(${progress / 100})`;
+        // Start tracking audio progress
+        function startProgressTracking() {
+            progressInterval = setInterval(updateProgressBar, 100);
+        }
+
+        // Stop tracking audio progress
+        function stopProgressTracking() {
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+        }
+
+        // Update progress bar based on audio playback
+        function updateProgressBar() {
+            if (audioElement && audioElement.duration) {
+                const progress = (audioElement.currentTime / audioElement.duration) * 100;
+                document.getElementById('progressBarFill').style.width = `${progress}%`;
+                document.getElementById('currentTime').textContent = formatTime(audioElement.currentTime);
                 
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    setTimeout(() => {
-                        resetAudioControls();
-                    }, 500);
-                }
-            }, 100);
+                // Update handle position
+                const handle = document.getElementById('progressBarHandle');
+                const container = document.getElementById('progressBarContainer');
+                const containerWidth = container.offsetWidth;
+                handle.style.left = `${progress}%`;
+            }
+        }
+
+        // Seek audio when progress bar is clicked
+        function seekAudio(e) {
+            if (audioElement && audioElement.duration) {
+                const container = document.getElementById('progressBarContainer');
+                const containerRect = container.getBoundingClientRect();
+                const clickPosition = (e.clientX - containerRect.left) / containerRect.width;
+                const seekTime = clickPosition * audioElement.duration;
+                
+                audioElement.currentTime = seekTime;
+                updateProgressBar();
+            }
+        }
+
+        // Format time in MM:SS format
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
         }
 
         function resetAudioControls() {
             const playButton = document.getElementById('playButton');
             const playText = document.getElementById('playText');
-            const audioWave = document.getElementById('audioWave');
+            const playIcon = document.getElementById('playIcon');
             
             playButton.classList.remove('playing');
-            playText.textContent = 'Listen to Message';
-            audioWave.style.transform = 'scaleX(0)';
+            playText.textContent = 'Play Message';
+            playIcon.textContent = '▶️';
             isPlaying = false;
+            
+            stopProgressTracking();
+            
+            // Reset progress bar
+            document.getElementById('progressBarFill').style.width = '0%';
+            document.getElementById('currentTime').textContent = '0:00';
         }
 
         // Breathing exercise
@@ -726,6 +878,16 @@
         function generateNewMotivation() {
             const stressLevel = parseFloat(document.getElementById('stressLevel').textContent);
             const stressCategory = motivationData?.stress_category || 'Medium';
+            
+            // Update avatar
+            updateAvatar();
+            
+            // Reset audio controls
+            if (audioElement) {
+                audioElement.pause();
+                resetAudioControls();
+            }
+            
             initializeMotivationInterface(stressLevel, stressCategory, '');
         }
 
@@ -760,7 +922,10 @@
             const userMessage = urlParams.get('message') || '';
             
             initializeMotivationInterface(stressLevel, stressCategory, userMessage);
+            
+            // Set up avatar animation
+            setInterval(updateAvatar, 3000);
         });
     </script>
 </body>
-</html>  
+</html>

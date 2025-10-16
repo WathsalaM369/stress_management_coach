@@ -4,6 +4,20 @@ from flask import Flask, request, jsonify, send_from_directory, session
 from flask import Flask, request, jsonify, render_template, redirect, url_for, send_from_directory, session
 from flask_cors import CORS
 import uvicorn
+from dotenv import load_dotenv
+import os
+import requests
+import json
+import secrets
+import hashlib
+import google.generativeai as genai
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Float
+from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import sessionmaker
+from datetime import datetime, timedelta
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Try to import the stress estimator with multiple fallbacks
 try:
@@ -64,16 +78,6 @@ from config import Config
 from agents.activity_recommender_flask import activity_bp
 from agents.stress_estimator import StressEstimator
 from agents.adaptive_scheduler_agent import scheduler_agent
-from datetime import datetime, timedelta
-import requests
-import json
-import os
-import secrets
-import hashlib
-import google.generativeai as genai
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, Float
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import sessionmaker
 
 # FastAPI App (Vinusha's version)
 fastapi_app = FastAPI(title="Stress Management Coach API")
@@ -127,17 +131,32 @@ flask_app.register_blueprint(activity_bp, url_prefix='/api/activity_recommender'
 # WATHSALA'S STRESS ESTIMATOR SETUP
 # =============================================================================
 
-# Initialize stress estimator with Gemini for Flask
+# ==================== ENHANCED LLM CONFIGURATION ====================
+# Debug: Check environment variables
+print("🔍 ENVIRONMENT VARIABLES CHECK:")
+print(f"USE_LLM: {os.getenv('USE_LLM')}")
+print(f"LLM_PROVIDER: {os.getenv('LLM_PROVIDER')}")
+print(f"GOOGLE_API_KEY exists: {bool(os.getenv('GOOGLE_API_KEY'))}")
+
+# Initialize stress estimator with enhanced Gemini configuration
 use_llm = os.getenv('USE_LLM', 'true').lower() == 'true'
-print(f"🔧 LLM Mode: {use_llm}")
+api_key = os.getenv('GOOGLE_API_KEY')
 
-if use_llm:
-    api_key = os.getenv('GOOGLE_API_KEY')
-    if not api_key or api_key == 'your_actual_google_api_key_here':
-        print("❌ No valid Google API key found. Disabling LLM.")
+# Enhanced API key validation
+if use_llm and api_key:
+    # Check if it's a valid key (not placeholder)
+    if api_key.startswith('AIza') and len(api_key) > 30:
+        print("✅ Valid Google API key detected!")
+    else:
+        print("❌ Invalid Google API key format. Disabling LLM.")
         use_llm = False
+else:
+    print("❌ No Google API key found. Disabling LLM.")
+    use_llm = False
 
-# Initialize the stress estimator
+print(f"🔧 Final LLM Mode: {use_llm}")
+
+# Initialize the stress estimator with correct LLM setting
 flask_estimator = StressEstimator(use_database=True, use_llm=use_llm)
 
 # In-memory user store (in production, use a real database)
@@ -800,6 +819,7 @@ def analyze_mood():
         
         print(f"🔍 Analyzing data for user: {user_id}")
         print(f"📊 Data type: {data.get('input_method')}")
+        print(f"🧠 LLM Enabled: {flask_estimator.use_llm}")
         
         if is_duplicate_request(user_id, data):
             print("🔄 Duplicate request detected, skipping...")
@@ -831,6 +851,7 @@ def analyze_comprehensive():
         user_id = get_current_user_id()
         
         print(f"🧠 Comprehensive analysis for user: {user_id}")
+        print(f"🧠 LLM Enabled: {flask_estimator.use_llm}")
         
         # Prepare data for analysis
         analysis_data = {
@@ -1607,7 +1628,7 @@ def test_endpoint():
         "message": "Backend is working!",
         "timestamp": datetime.now().isoformat(),
         "status": "success",
-        "gemini_enabled": estimator.use_llm,
+        "gemini_enabled": flask_estimator.use_llm,
         "has_api_key": bool(os.getenv('GOOGLE_API_KEY'))
     })
 
