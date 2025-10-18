@@ -1146,6 +1146,107 @@ def task_scheduler():
     except FileNotFoundError:
         return jsonify({"error": "Task scheduler page not found"}), 404
 
+@flask_app.route('/api/scheduler/test-db', methods=['GET'])
+def test_scheduler_database():
+    """Test database connection and show stored data"""
+    user_id = get_current_user_id()
+    
+    db = SchedulerSession()
+    try:
+        print("=" * 60)
+        print("🔍 DATABASE TEST")
+        print("=" * 60)
+        
+        # Test routine table
+        all_routines = db.query(UserRoutine).all()
+        user_routines = db.query(UserRoutine).filter_by(user_id=user_id).all()
+        
+        print(f"📊 Total routines in DB: {len(all_routines)}")
+        print(f"👤 User routines: {len(user_routines)}")
+        
+        routine_info = []
+        for routine in user_routines:
+            try:
+                data = json.loads(routine.routine_data)
+                work_slots = data.get('total_work_slots', 'N/A')
+                routine_info.append({
+                    'id': routine.id,
+                    'created': routine.created_at.isoformat(),
+                    'updated': routine.updated_at.isoformat(),
+                    'work_slots': work_slots,
+                    'has_weekly_routine': 'weekly_routine' in data
+                })
+            except:
+                routine_info.append({
+                    'id': routine.id,
+                    'error': 'Failed to parse'
+                })
+        
+        # Test tasks table
+        all_tasks = db.query(TaskRecord).all()
+        user_tasks = db.query(TaskRecord).filter_by(user_id=user_id).all()
+        
+        print(f"📊 Total task records in DB: {len(all_tasks)}")
+        print(f"👤 User task records: {len(user_tasks)}")
+        
+        task_info = []
+        for task_record in user_tasks:
+            try:
+                data = json.loads(task_record.tasks_data)
+                if isinstance(data, dict) and 'tasks' in data:
+                    task_count = len(data['tasks'])
+                elif isinstance(data, list):
+                    task_count = len(data)
+                else:
+                    task_count = 'unknown'
+                
+                task_info.append({
+                    'id': task_record.id,
+                    'created': task_record.created_at.isoformat(),
+                    'task_count': task_count
+                })
+            except:
+                task_info.append({
+                    'id': task_record.id,
+                    'error': 'Failed to parse'
+                })
+        
+        # Test schedules table
+        all_schedules = db.query(UserSchedule).all()
+        user_schedules = db.query(UserSchedule).filter_by(user_id=user_id).all()
+        
+        print(f"📊 Total schedules in DB: {len(all_schedules)}")
+        print(f"👤 User schedules: {len(user_schedules)}")
+        
+        return jsonify({
+            'status': 'success',
+            'user_id': user_id,
+            'database': {
+                'routines': {
+                    'total': len(all_routines),
+                    'user': len(user_routines),
+                    'details': routine_info
+                },
+                'tasks': {
+                    'total': len(all_tasks),
+                    'user': len(user_tasks),
+                    'details': task_info
+                },
+                'schedules': {
+                    'total': len(all_schedules),
+                    'user': len(user_schedules)
+                }
+            }
+        })
+        
+    except Exception as e:
+        print(f"❌ Database test error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        db.close()
+
 @flask_app.route('/api/scheduler/check-status', methods=['GET'])
 def check_scheduler_status():
     """Check if user has routine and recent stress assessment"""
@@ -1185,185 +1286,296 @@ def check_scheduler_status():
 @flask_app.route('/api/scheduler/save-routine', methods=['POST'])
 def save_scheduler_routine():
     """Save or update user's weekly routine"""
-    data = request.json
-    user_id = get_current_user_id()
-    
-    db = SchedulerSession()
     try:
-        existing = db.query(UserRoutine).filter_by(user_id=user_id).first()
+        data = request.json
+        user_id = get_current_user_id()
         
+        print("=" * 60)
+        print("💾 ROUTINE SAVING REQUEST")
+        print("=" * 60)
+        print(f"👤 User ID: {user_id}")
+        print(f"📦 Request Data Keys: {data.keys()}")
+        print(f"📋 Full Request Data: {json.dumps(data, indent=2)}")
+        
+        # Extract routine data
+        routine_data = data.get('routine')
+        
+        if not routine_data:
+            print("❌ No routine data in request")
+            return jsonify({'status': 'error', 'message': 'No routine data provided'}), 400
+        
+        if not isinstance(routine_data, dict):
+            print(f"❌ Routine data is not a dict: {type(routine_data)}")
+            return jsonify({'status': 'error', 'message': 'Invalid routine data format'}), 400
+        
+        # Validate that routine_data has days
+        expected_days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        for day in expected_days:
+            if day not in routine_data:
+                print(f"⚠️ Missing day: {day}, adding empty array")
+                routine_data[day] = []
+        
+        # Count work slots
+        work_slot_count = 0
+        for day, slots in routine_data.items():
+            if not isinstance(slots, list):
+                print(f"❌ Slots for {day} is not a list: {type(slots)}")
+                continue
+            
+            day_work_count = 0
+            for slot in slots:
+                print(f"  📍 {day} slot: {slot.get('start')}-{slot.get('end')} type={slot.get('type')}")
+                if slot.get('type') == 'work':
+                    work_slot_count += 1
+                    day_work_count += 1
+            
+            print(f"  📅 {day}: {len(slots)} total slots, {day_work_count} work slots")
+        
+        print(f"📊 Total work slots: {work_slot_count}")
+        
+        if work_slot_count == 0:
+            print("❌ No work slots found")
+            return jsonify({
+                'status': 'error',
+                'message': 'No work slots found! Please mark at least some time slots as "Work" type where tasks can be scheduled.'
+            }), 400
+        
+        # Create the routine JSON structure
         routine_json = json.dumps({
-            'weekly_routine': data.get('routine'),
-            'work_hours': data.get('work_hours'),
-            'sleep_schedule': data.get('sleep_schedule'),
-            'preferences': data.get('preferences'),
-            'energy_levels': data.get('energy_levels')
+            'weekly_routine': routine_data,
+            'work_hours': data.get('work_hours', 8),
+            'sleep_schedule': data.get('sleep_schedule', {'start': '22:00', 'end': '07:00'}),
+            'preferences': data.get('preferences', {}),
+            'energy_levels': data.get('energy_levels', {}),
+            'saved_at': datetime.now().isoformat(),
+            'total_work_slots': work_slot_count
         })
         
-        if existing:
-            existing.routine_data = routine_json
-            existing.updated_at = datetime.now()
-            message = 'Routine updated successfully'
-        else:
-            new_routine = UserRoutine(user_id=user_id, routine_data=routine_json)
-            db.add(new_routine)
-            message = 'Routine saved successfully'
+        print(f"💾 Prepared JSON (length: {len(routine_json)} chars)")
         
-        db.commit()
-        print(f"✅ {message} for user: {user_id}")
-        return jsonify({'status': 'success', 'message': message})
+        db = SchedulerSession()
+        try:
+            # Check for existing routine
+            existing = db.query(UserRoutine).filter_by(user_id=user_id).first()
+            
+            if existing:
+                print(f"🔄 Updating existing routine (ID: {existing.id})")
+                existing.routine_data = routine_json
+                existing.updated_at = datetime.now()
+                message = 'Routine updated successfully'
+            else:
+                print(f"✨ Creating new routine for user: {user_id}")
+                new_routine = UserRoutine(
+                    user_id=user_id,
+                    routine_data=routine_json,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+                db.add(new_routine)
+                message = 'Routine saved successfully'
+            
+            db.commit()
+            print(f"✅ {message}")
+            
+            # Verify save by reading back
+            verification = db.query(UserRoutine).filter_by(user_id=user_id).first()
+            if verification:
+                saved_data = json.loads(verification.routine_data)
+                saved_work_slots = saved_data.get('total_work_slots', 0)
+                print(f"✅ Verification: Found routine with {saved_work_slots} work slots")
+            
+            return jsonify({
+                'status': 'success',
+                'message': message,
+                'work_slot_count': work_slot_count,
+                'saved_at': datetime.now().isoformat()
+            })
+            
+        except Exception as db_error:
+            db.rollback()
+            print(f"❌ Database error: {str(db_error)}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'status': 'error', 'message': f'Database error: {str(db_error)}'}), 500
+        finally:
+            db.close()
+            
     except Exception as e:
-        db.rollback()
-        print(f"❌ Error saving routine: {str(e)}")
+        print(f"❌ Error in save_scheduler_routine: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
-    finally:
-        db.close()
-
+    
 @flask_app.route('/api/scheduler/get-routine', methods=['GET'])
 def get_scheduler_routine():
     """Get user's saved routine"""
     user_id = get_current_user_id()
+    
+    print("=" * 60)
+    print("📖 ROUTINE RETRIEVAL REQUEST")
+    print("=" * 60)
+    print(f"👤 User ID: {user_id}")
     
     db = SchedulerSession()
     try:
         routine_record = db.query(UserRoutine).filter_by(user_id=user_id).first()
         
         if routine_record:
-            routine_data = json.loads(routine_record.routine_data)
-            return jsonify({
-                'status': 'success',
-                'routine': routine_data,
-                'updated_at': routine_record.updated_at.isoformat()
-            })
+            print(f"✅ Found routine record (ID: {routine_record.id})")
+            print(f"📅 Created: {routine_record.created_at}")
+            print(f"🔄 Updated: {routine_record.updated_at}")
+            print(f"📦 Data length: {len(routine_record.routine_data)} chars")
+            
+            try:
+                routine_data = json.loads(routine_record.routine_data)
+                
+                # Log structure
+                weekly_routine = routine_data.get('weekly_routine', {})
+                total_slots = sum(len(slots) for slots in weekly_routine.values())
+                work_slots = sum(
+                    1 for slots in weekly_routine.values()
+                    for slot in slots
+                    if slot.get('type') == 'work'
+                )
+                
+                print(f"📊 Routine stats:")
+                print(f"  - Total slots: {total_slots}")
+                print(f"  - Work slots: {work_slots}")
+                print(f"  - Stored work slots: {routine_data.get('total_work_slots', 'N/A')}")
+                
+                # Log each day
+                for day, slots in weekly_routine.items():
+                    day_work = sum(1 for s in slots if s.get('type') == 'work')
+                    print(f"  - {day}: {len(slots)} slots ({day_work} work)")
+                
+                return jsonify({
+                    'status': 'success',
+                    'routine': routine_data,
+                    'updated_at': routine_record.updated_at.isoformat(),
+                    'stats': {
+                        'total_slots': total_slots,
+                        'work_slots': work_slots
+                    }
+                })
+                
+            except json.JSONDecodeError as json_err:
+                print(f"❌ JSON decode error: {json_err}")
+                print(f"📄 Raw data preview: {routine_record.routine_data[:200]}")
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Corrupted routine data'
+                }), 500
         else:
-            return jsonify({'status': 'error', 'message': 'No routine found'}), 404
+            print(f"❌ No routine found for user: {user_id}")
+            return jsonify({
+                'status': 'error',
+                'message': 'No routine found'
+            }), 404
+            
+    except Exception as e:
+        print(f"❌ Error retrieving routine: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
     finally:
         db.close()
 
 @flask_app.route('/api/scheduler/generate-schedule', methods=['POST'])
 def generate_scheduler_schedule():
-    """Generate optimized schedule using Gemini with current time awareness"""
+    """Generate optimized schedule - FIXED: Only uses WORK slots"""
     data = request.json
     user_id = get_current_user_id()
     
     if not scheduler_model:
-        return jsonify({'status': 'error', 'message': 'AI scheduling not available. Please check Gemini API configuration.'}), 500
-    
-    # CRITICAL: Extract current_time from request
+        return jsonify({'status': 'error', 'message': 'AI scheduling not available'}), 500
+
     tasks = data.get('tasks', [])
     week_start = data.get('week_start')
-    current_time = data.get('current_time')  # Format: "HH:MM" (e.g., "14:30")
+    current_time = data.get('current_time')
     stress_score = data.get('stress_score', 5)
     stress_level = data.get('stress_level', 'Medium')
     mood = data.get('mood', 'neutral')
     
-    print(f"🗓️ Generating schedule for {len(tasks)} tasks")
-    print(f"📊 Stress: {stress_score}/10")
-    print(f"⏰ Current time received: {current_time}")
-    print(f"📅 Week start: {week_start}")
-    
-    # Validate current_time
     if not current_time:
         current_time = datetime.now().strftime('%H:%M')
-        print(f"⚠️ No current_time provided, using system time: {current_time}")
-    else:
-        print(f"✅ Using provided current_time: {current_time}")
     
     db = SchedulerSession()
     try:
-        # Get user's routine
         user_routine_record = db.query(UserRoutine).filter_by(user_id=user_id).first()
-        
         if not user_routine_record:
-            return jsonify({
-                'status': 'error',
-                'message': 'No routine found. Please set up your weekly routine first.'
-            }), 404
-        
+            return jsonify({'status': 'error', 'message': 'No routine found'}), 404
+
         routine_data = json.loads(user_routine_record.routine_data)
         routine = routine_data.get('weekly_routine', {})
+
+        # CRITICAL FIX: Filter to ONLY work slots
+        work_slots_routine = {}
+        total_work_slots = 0
         
-        # Build enhanced prompt WITH current time consideration
-        prompt = f"""You are an AI Task Scheduler. Create an optimized weekly schedule with STRICT DEADLINE compliance and TIME AWARENESS.
+        for day, slots in routine.items():
+            work_slots_only = [slot for slot in slots if slot.get('type') == 'work']
+            work_slots_routine[day] = work_slots_only
+            total_work_slots += len(work_slots_only)
+            print(f"📅 {day}: {len(work_slots_only)} WORK slots")
+
+        if total_work_slots == 0:
+            return jsonify({
+                'status': 'error',
+                'message': 'No WORK slots found! Mark time as "Work" type in your routine.'
+            }), 400
+
+        # Use work_slots_routine instead of full routine in prompt
+        prompt = f"""You are an AI Task Scheduler. ONLY schedule in the provided WORK slots.
 
 CURRENT TIME: {current_time}
 WEEK STARTING: {week_start}
 
-⏰ CRITICAL TIME RULES:
-- Do NOT schedule tasks in time slots that have already passed TODAY
-- For example, if current time is {current_time}, skip any slots that end before this time
-- Only use available time slots from {current_time} onwards for today
-- Future days can use any available slot
+AVAILABLE WORK TIME (Already filtered to type="work" only):
+{json.dumps(work_slots_routine, indent=2)}
 
-USER'S WEEKLY ROUTINE (Available time slots):
-{json.dumps(routine, indent=2)}
+TASKS TO SCHEDULE:
+{json.dumps(tasks, indent=2)}
 
-TASKS TO SCHEDULE (sorted by urgency):
-{json.dumps(sorted(tasks, key=lambda x: (x.get('deadline', '9999-12-31'), 0 if x.get('priority')=='high' else 1)), indent=2)}
+STRESS: {stress_score}/10 ({stress_level})
 
-STRESS CONTEXT:
-- Stress Score: {stress_score}/10
-- Stress Level: {stress_level}
-- Mood: {mood}
+RULES:
+1. ONLY use the work slots provided above
+2. Skip past time slots for today
+3. Respect stress-based limits:
+   - High (7-10): Max 4-5h/day
+   - Medium (4-6): Max 6-7h/day
+   - Low (1-3): Max 8h/day
+4. Schedule urgent tasks first
+5. Add breaks between tasks
 
-SCHEDULING RULES:
-1. HIGH PRIORITY + URGENT DEADLINES FIRST (deadline within 2 days)
-2. ALL tasks MUST be scheduled BEFORE their deadline
-3. NEVER schedule in time slots that have already passed
-4. High stress (≥7): Max 4-5h work/day, 20min buffers, frequent breaks
-5. Medium stress (4-6): Max 6-7h work/day, 10min buffers
-6. Low stress (1-3): Up to 8h work/day, standard buffers
-7. NEVER schedule during "blocked" or "sleep" time slots
-8. Add stress-relief breaks between intense tasks
-
-OUTPUT (JSON only):
+Return JSON only:
 {{
   "schedule": [
     {{
       "day": "Monday",
       "date": "2025-10-14",
-      "total_work_hours": 5.5,
       "slots": [
         {{
           "time": "09:00-11:00",
           "task": "Task name",
           "priority": "High",
           "type": "work",
-          "flexible": false,
-          "deadline": "2025-10-16",
-          "urgency": "urgent",
-          "notes": "High priority - deadline in 2 days"
-        }},
-        {{
-          "time": "11:00-11:15",
-          "task": "Break",
-          "priority": "Medium",
-          "type": "break",
-          "flexible": false,
-          "notes": "Stress relief break"
+          "deadline": "2025-10-16"
         }}
       ]
     }}
   ],
-  "warnings": ["List any scheduling conflicts or deadline issues"],
-  "suggestions": ["Optimization tips"],
-  "workload_analysis": {{"Monday": "balanced", "Tuesday": "light"}},
-  "stress_adaptations": ["Applied 5h daily limit for high stress"],
-  "deadline_compliance": ["All 8 tasks scheduled before deadlines"],
-  "scheduling_start_time": "{current_time}"
-}}
+  "warnings": [],
+  "suggestions": []
+}}"""
 
-Return ONLY valid JSON, no markdown, no explanations."""
-
-        print("🤖 Calling Gemini for schedule generation...")
-        
-        # Call Gemini
         response = scheduler_model.generate_content(prompt)
         response_text = response.text.strip()
         
-        print(f"📄 Gemini response received ({len(response_text)} chars)")
-        
-        # Clean response
+        # Clean markdown
         if '```json' in response_text:
             json_start = response_text.find('```json') + 7
             json_end = response_text.find('```', json_start)
@@ -1375,14 +1587,16 @@ Return ONLY valid JSON, no markdown, no explanations."""
         
         schedule_data = json.loads(response_text)
         
-        # Add metadata
-        schedule_data['scheduling_time_used'] = current_time
+        # VALIDATION: Remove any non-work slots that leaked through
+        for day_schedule in schedule_data.get('schedule', []):
+            day_schedule['slots'] = [
+                slot for slot in day_schedule.get('slots', [])
+                if slot.get('type') in ['work', 'break']
+            ]
+        
         schedule_data['generated_at'] = datetime.now().isoformat()
         
-        print(f"✅ Schedule parsed successfully")
-        print(f"📊 Generated {len(schedule_data.get('schedule', []))} days of schedule")
-        
-        # Save schedule to database
+        # Save to database
         new_schedule = UserSchedule(
             user_id=user_id,
             schedule_data=json.dumps(schedule_data),
@@ -1391,32 +1605,20 @@ Return ONLY valid JSON, no markdown, no explanations."""
             mood=mood
         )
         db.add(new_schedule)
-        
-        # Save tasks
-        new_tasks = TaskRecord(user_id=user_id, tasks_data=json.dumps(tasks))
-        db.add(new_tasks)
-        
         db.commit()
-        
-        print(f"✅ Schedule generated and saved for user: {user_id}")
-        print(f"⏰ Current time used in scheduling: {current_time}")
         
         return jsonify({'status': 'success', 'schedule': schedule_data})
         
-    except json.JSONDecodeError as e:
-        print(f"❌ JSON parsing error: {e}")
-        print(f"Response preview: {response_text[:200]}")
-        return jsonify({'status': 'error', 'message': 'AI generated invalid response. Please try again.'}), 500
     except Exception as e:
         db.rollback()
-        print(f"❌ Error generating schedule: {str(e)}")
+        print(f"❌ Error: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': str(e)}), 500
     finally:
         db.close()
-        
 
+        
 @flask_app.route('/api/scheduler/estimate-duration', methods=['POST'])
 def estimate_task_duration():
     """Use Gemini to estimate task duration based on task name and context"""
@@ -1560,6 +1762,158 @@ def get_scheduler_schedule():
                 'created_at': latest_schedule.created_at.isoformat()
             })
         return jsonify({'status': 'error', 'message': 'No schedule found'}), 404
+    finally:
+        db.close()
+
+@flask_app.route('/api/scheduler/delete-task', methods=['POST'])
+def delete_task():
+    """Delete a specific task from the database"""
+    try:
+        data = request.json
+        user_id = get_current_user_id()
+        task_id = data.get('task_id')
+        
+        print(f"🗑️ Deleting task {task_id} for user {user_id}")
+        
+        db = SchedulerSession()
+        try:
+            all_task_records = db.query(TaskRecord).filter_by(user_id=user_id).all()
+            
+            updated = False
+            for record in all_task_records:
+                tasks_data = json.loads(record.tasks_data)
+                
+                if isinstance(tasks_data, dict) and 'tasks' in tasks_data:
+                    original_length = len(tasks_data['tasks'])
+                    tasks_data['tasks'] = [t for t in tasks_data['tasks'] if t.get('id') != task_id]
+                    
+                    if len(tasks_data['tasks']) < original_length:
+                        if len(tasks_data['tasks']) == 0:
+                            db.delete(record)
+                        else:
+                            record.tasks_data = json.dumps(tasks_data)
+                        updated = True
+                
+                elif isinstance(tasks_data, list):
+                    original_length = len(tasks_data)
+                    tasks_data = [t for t in tasks_data if t.get('id') != task_id]
+                    
+                    if len(tasks_data) < original_length:
+                        if len(tasks_data) == 0:
+                            db.delete(record)
+                        else:
+                            record.tasks_data = json.dumps(tasks_data)
+                        updated = True
+            
+            if updated:
+                db.commit()
+                return jsonify({'status': 'success', 'message': 'Task deleted'})
+            else:
+                return jsonify({'status': 'error', 'message': 'Task not found'}), 404
+                
+        finally:
+            db.close()
+            
+    except Exception as e:
+        print(f"❌ Error deleting task: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@flask_app.route('/api/scheduler/clear-all-tasks', methods=['POST'])
+def clear_all_tasks():
+    """Clear all tasks for the current user"""
+    try:
+        user_id = get_current_user_id()
+        db = SchedulerSession()
+        try:
+            deleted_count = db.query(TaskRecord).filter_by(user_id=user_id).delete()
+            db.commit()
+            
+            return jsonify({
+                'status': 'success',
+                'message': f'Cleared {deleted_count} task record(s)'
+            })
+        finally:
+            db.close()
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@flask_app.route('/api/scheduler/get-tasks', methods=['GET'])
+def get_scheduler_tasks():
+    """Get ALL user's saved tasks (merged from all records)"""
+    user_id = get_current_user_id()
+    
+    print("=" * 60)
+    print("📋 TASKS RETRIEVAL REQUEST")
+    print("=" * 60)
+    print(f"👤 User ID: {user_id}")
+    
+    db = SchedulerSession()
+    try:
+        # Get ALL task records for this user (not just latest)
+        all_task_records = db.query(TaskRecord).filter_by(user_id=user_id).order_by(TaskRecord.created_at.desc()).all()
+        
+        if not all_task_records:
+            print(f"📋 No tasks found for user: {user_id}")
+            return jsonify({
+                'status': 'success',
+                'tasks': [],
+                'message': 'No tasks found'
+            })
+        
+        print(f"📊 Found {len(all_task_records)} task record(s)")
+        
+        # Merge all tasks from all records
+        all_tasks = []
+        seen_task_names = set()  # To avoid duplicates
+        
+        for record in all_task_records:
+            try:
+                tasks_data = json.loads(record.tasks_data)
+                
+                # Handle both formats (with metadata or direct list)
+                if isinstance(tasks_data, dict) and 'tasks' in tasks_data:
+                    tasks_list = tasks_data['tasks']
+                elif isinstance(tasks_data, list):
+                    tasks_list = tasks_data
+                else:
+                    continue
+                
+                # Add tasks, avoiding duplicates by name
+                for task in tasks_list:
+                    task_key = f"{task.get('name')}_{task.get('deadline')}"
+                    if task_key not in seen_task_names:
+                        seen_task_names.add(task_key)
+                        all_tasks.append(task)
+                        print(f"  ✅ Added task: {task.get('name')} (deadline: {task.get('deadline')})")
+                    else:
+                        print(f"  ⏭️ Skipped duplicate: {task.get('name')}")
+                
+            except json.JSONDecodeError as json_err:
+                print(f"⚠️ Failed to parse record {record.id}: {json_err}")
+                continue
+        
+        print(f"📊 Total unique tasks: {len(all_tasks)}")
+        
+        return jsonify({
+            'status': 'success',
+            'tasks': all_tasks,
+            'metadata': {
+                'total_tasks': len(all_tasks),
+                'total_records': len(all_task_records),
+                'unique_tasks': len(all_tasks)
+            },
+            'message': f'Loaded {len(all_tasks)} unique tasks from {len(all_task_records)} record(s)'
+        })
+        
+    except Exception as e:
+        print(f"❌ Error retrieving tasks: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
     finally:
         db.close()
 
