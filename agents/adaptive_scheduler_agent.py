@@ -114,11 +114,25 @@ class AdaptiveSchedulerAgent:
         stress_score = stress_data.get('stress_score', 5)
         stress_level = stress_data.get('stress_level', 'Medium')
         
-        # Sort tasks by urgency
-        sorted_tasks = sorted(tasks, key=lambda x: (
-            datetime.strptime(x['deadline'], '%Y-%m-%d') if x.get('deadline') else datetime(2099, 12, 31),
-            0 if x.get('priority') == 'high' else (1 if x.get('priority') == 'medium' else 2)
-        ))
+        # Sort tasks by SMART urgency (deadline + stress consideration)
+        def calculate_urgency_score(task):
+            if not task.get('deadline'):
+                return (datetime(2099, 12, 31), 2)
+            
+            deadline_date = datetime.strptime(task['deadline'], '%Y-%m-%d')
+            days_until = (deadline_date - datetime.strptime(week_start, '%Y-%m-%d')).days
+            
+            # If high stress and far deadline, lower the urgency
+            if stress_score >= 7 and days_until > 7:
+                urgency_modifier = 3  # Lower priority
+            elif stress_score >= 4 and days_until > 5:
+                urgency_modifier = 2
+            else:
+                urgency_modifier = 0 if task.get('priority') == 'high' else 1
+            
+            return (deadline_date, urgency_modifier)
+
+        sorted_tasks = sorted(tasks, key=calculate_urgency_score)
         
         prompt = f"""You are an EXPERT AI Task Scheduler. Your job is to CREATE AN OPTIMAL SCHEDULE ONLY.
 
@@ -166,6 +180,52 @@ NOTE: For each task, calculate optimal duration based on:
 - Deadline urgency
 
 ═══════════════════════════════════════════════════════════════
+⏰ TIME AWARENESS RULES - CRITICAL
+═══════════════════════════════════════════════════════════════
+CURRENT TIME: {current_time}
+CURRENT DATE: {datetime.now().strftime('%Y-%m-%d')}
+
+YOU MUST CHECK TIME:
+1. For TODAY only: Skip any time slot that ENDS before {current_time}
+   Example: Current time is 14:30
+   - Slot 09:00-12:00 → SKIP (already passed)
+   - Slot 13:00-14:00 → SKIP (already passed)
+   - Slot 14:00-16:00 → SKIP (ends at 16:00 but starts before current time)
+   - Slot 15:00-17:00 → CAN USE (starts after 14:30) ✅
+   - Slot 18:00-20:00 → CAN USE ✅
+
+2. For FUTURE DAYS (not today): Use all available slots normally
+
+═══════════════════════════════════════════════════════════════
+🚨 CRITICAL: SLOT TYPE FILTERING
+═══════════════════════════════════════════════════════════════
+BEFORE scheduling ANY task, you MUST:
+
+1. Check the slot's "type" field
+2. ONLY schedule work tasks in slots where type="work"
+3. IGNORE all other slot types (blocked, sleep, hobby, leisure, exercise)
+
+YOU CAN ONLY SCHEDULE TASKS IN SLOTS WHERE type="work"
+
+ALLOWED:
+✅ type="work" → Schedule tasks here
+
+FORBIDDEN - NEVER SCHEDULE HERE:
+❌ type="blocked" → User is unavailable
+❌ type="sleep" → User is sleeping
+❌ type="hobby" → Personal hobby time
+❌ type="leisure" → Relaxation time
+❌ type="exercise" → Exercise time
+
+VALIDATION CHECKLIST FOR EVERY TASK:
+[ ] Is the slot type="work"? If NO, skip this slot
+[ ] Has this time already passed today? If YES, skip this slot
+[ ] Does it fit the stress-based work hour limits? If NO, skip
+[ ] Is it before the task deadline? If NO, add to warnings
+
+If a day has NO "work" type slots, leave that day empty in the schedule!
+
+═══════════════════════════════════════════════════════════════
 🎯 STRESS-ADAPTIVE SCHEDULING RULES
 ═══════════════════════════════════════════════════════════════
 
@@ -181,15 +241,32 @@ NOTE: For each task, calculate optimal duration based on:
 5. Group similar tasks to reduce context switching
 6. if the person is too stress do not schdeule tasks at theat time.
 
+1. Calculate days until deadline for each task
+2. HIGH STRESS (≥7) + FAR DEADLINE (>7 days):
+   - Do NOT schedule immediately
+   - Start from day 3-4 of the week
+   - Spread across multiple sessions
+   
+3. URGENT TASKS (deadline ≤2 days):
+   - Schedule FIRST in earliest available "work" slots
+   - Takes priority over everything
+   
+4. NORMAL TASKS (3-7 days):
+   - Balance across the week
+   - Respect stress limits
 
 ═══════════════════════════════════════════════════════════════
 🚫 ABSOLUTE CONSTRAINTS
 ═══════════════════════════════════════════════════════════════
-• NEVER schedule during "blocked" or "sleep" time slots
-• NEVER exceed stress-based daily work hour limits
-• NEVER schedule tasks after their deadline
-• ALWAYS include buffers between tasks
-• ALWAYS respect user's routine commitments
+- NEVER EVER schedule ANY task during "blocked" or "sleep" slots
+- NEVER schedule work tasks during "hobby", "leisure", or "exercise" slots
+- ONLY use time slots marked as "work" type for task scheduling
+- NEVER exceed stress-based daily work hour limits
+- NEVER schedule tasks after their deadline
+- ALWAYS include buffers between tasks
+- ALWAYS respect user's routine commitments
+
+CRITICAL: If a slot type is NOT "work", you CANNOT schedule a task there!
 
 ═══════════════════════════════════════════════════════════════
 📤 OUTPUT FORMAT (VALID JSON ONLY)
@@ -241,6 +318,32 @@ NOTE: For each task, calculate optimal duration based on:
     "Summary of deadline adherence"
   ]
 }}
+
+═══════════════════════════════════════════════════════════════
+🧠 INTELLIGENT STRESS-BASED TASK DISTRIBUTION
+═══════════════════════════════════════════════════════════════
+
+HIGH STRESS (7-10) + FAR DEADLINE (>7 days):
+- DO NOT schedule immediately
+- Spread the task across multiple days
+- Start scheduling from day 3-4 of the week
+- Break large tasks into smaller sessions
+- Prioritize urgent tasks with near deadlines FIRST
+
+MEDIUM STRESS (4-6) + FAR DEADLINE (>5 days):
+- Can schedule earlier but not urgent priority
+- Balance with urgent tasks
+- Use 2-3 day buffer from today
+
+LOW STRESS (1-3):
+- Normal scheduling - can start immediately if slots available
+- Still prioritize by deadline urgency
+
+DEADLINE URGENCY LEVELS:
+- CRITICAL: 0-2 days → Schedule IMMEDIATELY in first available slots
+- HIGH: 3-4 days → Schedule in first 2 days
+- MEDIUM: 5-7 days → Schedule across 3-4 days  
+- LOW: 8+ days → Spread across the week, avoid immediate scheduling if stress is high
 
 ═══════════════════════════════════════════════════════════════
 🎯 SCHEDULING STRATEGY
@@ -385,6 +488,10 @@ CRITICAL: Return ONLY valid JSON. No markdown, no extra text.
         days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         
         task_index = 0
+        # Get current time for TODAY's scheduling
+        now = datetime.now()
+        current_hour_minute = now.hour * 60 + now.minute  # Convert to minutes
+
         for day_offset in range(7):
             current_date = start_date + timedelta(days=day_offset)
             date_str = current_date.strftime('%Y-%m-%d')
@@ -393,6 +500,8 @@ CRITICAL: Return ONLY valid JSON. No markdown, no extra text.
             if current_date < today:
                 print(f"⏭️ Skipping {day_name} ({date_str}) - in the past")
                 continue
+            
+            is_today = (current_date.date() == today.date())
 
             day_schedule = {
                 'day': day_name,
@@ -402,10 +511,27 @@ CRITICAL: Return ONLY valid JSON. No markdown, no extra text.
             }
             
             routine_slots = user_routine.get(day_name, [])
-            work_slots = [slot for slot in routine_slots if slot.get('type') == 'work']
             
+            work_slots = [slot for slot in routine_slots if slot.get('type') == 'work']
+
+            print(f"📅 {day_name}: Found {len(work_slots)} work slots (filtered from {len(routine_slots)} total)")
+
             daily_hours = 0
             for slot in work_slots:
+                # TIME CHECK: Skip slots that have already passed TODAY
+                if is_today:
+                    slot_end_time = slot['end']  # Format: "HH:MM"
+                    slot_end_parts = slot_end_time.split(':')
+                    slot_end_minutes = int(slot_end_parts[0]) * 60 + int(slot_end_parts[1])
+                    
+                    if slot_end_minutes <= current_hour_minute:
+                        print(f"  ⏭️ Skipping {slot['start']}-{slot['end']} (already passed)")
+                        continue
+                
+                # Ensure this is a WORK slot (double check)
+                if slot.get('type') != 'work':
+                    print(f"  ❌ Skipping {slot['start']}-{slot['end']} (type: {slot.get('type')})")
+                    continue
                 if task_index >= len(sorted_tasks) or daily_hours >= max_daily_hours:
                     break
                 
