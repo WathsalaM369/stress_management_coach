@@ -1838,6 +1838,73 @@ def clear_all_tasks():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+@flask_app.route('/api/scheduler/save-tasks', methods=['POST'])
+def save_scheduler_tasks():
+    """Save user's current tasks to database"""
+    try:
+        data = request.json
+        user_id = get_current_user_id()
+        tasks = data.get('tasks', [])
+        
+        print("=" * 60)
+        print("💾 TASKS SAVE REQUEST")
+        print("=" * 60)
+        print(f"👤 User ID: {user_id}")
+        print(f"📊 Number of tasks: {len(tasks)}")
+        
+        if not tasks:
+            return jsonify({
+                'status': 'error',
+                'message': 'No tasks provided'
+            }), 400
+        
+        db = SchedulerSession()
+        try:
+            # Delete old task records for this user
+            deleted = db.query(TaskRecord).filter_by(user_id=user_id).delete()
+            print(f"🗑️ Deleted {deleted} old task record(s)")
+            
+            # Save new tasks
+            tasks_json = json.dumps({
+                'tasks': tasks,
+                'saved_at': datetime.now().isoformat(),
+                'total_tasks': len(tasks)
+            })
+            
+            new_record = TaskRecord(
+                user_id=user_id,
+                tasks_data=tasks_json,
+                created_at=datetime.now()
+            )
+            
+            db.add(new_record)
+            db.commit()
+            
+            print(f"✅ Saved {len(tasks)} tasks successfully")
+            
+            return jsonify({
+                'status': 'success',
+                'message': f'Saved {len(tasks)} tasks',
+                'task_count': len(tasks)
+            })
+            
+        except Exception as db_error:
+            db.rollback()
+            print(f"❌ Database error: {str(db_error)}")
+            return jsonify({
+                'status': 'error',
+                'message': str(db_error)
+            }), 500
+        finally:
+            db.close()
+            
+    except Exception as e:
+        print(f"❌ Error saving tasks: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
 @flask_app.route('/api/scheduler/get-tasks', methods=['GET'])
 def get_scheduler_tasks():
     """Get ALL user's saved tasks (merged from all records)"""
