@@ -482,7 +482,6 @@
                 <button class="export-btn" onclick="printSchedule()">🖨️ Print Schedule</button>
                 <button class="export-btn" onclick="editRoutine()" style="background: #f59e0b;">✏️ Edit Routine</button>
                 <button class="export-btn" onclick="editTasks()" style="background: #3b82f6;">📋 Edit Tasks</button>
-                <button class="export-btn" onclick="startOver()" style="background: #ef4444;">🔄 Create New Schedule</button>
 
             </div>
             
@@ -981,12 +980,35 @@
                 tasks[taskIndex].duration = estimatedDuration;
                 tasks[taskIndex].estimating = false;
                 displayTasks();
+                await saveTasksToDatabase();
             }
 
             document.getElementById('taskName').value = '';
             document.getElementById('taskDeadline').value = '';
             btn.disabled = false;
             btn.textContent = '➕ Add Task (AI will estimate duration)';
+        }
+
+        async function saveTasksToDatabase() {
+            try {
+                console.log('💾 Saving tasks to database...', tasks);
+                
+                const response = await fetch('/api/scheduler/save-tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tasks: tasks })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    console.log('✅ Tasks saved successfully');
+                } else {
+                    console.error('❌ Failed to save tasks:', data.message);
+                }
+            } catch (error) {
+                console.error('❌ Error saving tasks:', error);
+            }
         }
 
         function displayTasks() {
@@ -1070,6 +1092,7 @@
                     tasks = tasks.filter(t => t.id !== id);
                     displayTasks();
                     console.log('✅ Task deleted from database');
+                    await saveTasksToDatabase();
                 } else {
                     alert('Error deleting task: ' + data.message);
                 }
