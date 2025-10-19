@@ -1208,11 +1208,64 @@
                         a.download = exportData.filename;
                         a.click();
                         window.URL.revokeObjectURL(url);
+
+                        showGoogleCalendarGuide();
                     }
                 }
             } catch (error) {
                 alert('Error exporting calendar: ' + error.message);
             }
+        }
+
+        function showGoogleCalendarGuide() {
+            const guideHTML = `
+                <div style="text-align: left; max-width: 500px;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;">📅 How to Import into Google Calendar</h3>
+                    <ol style="margin-left: 20px; margin-bottom: 20px;">
+                        <li style="margin-bottom: 10px;">Go to <a href="https://calendar.google.com" target="_blank" style="color: #667eea;">Google Calendar</a></li>
+                        <li style="margin-bottom: 10px;">On the left side, click <strong>Settings</strong> ⚙️</li>
+                        <li style="margin-bottom: 10px;">Click <strong>Import & Export</strong></li>
+                        <li style="margin-bottom: 10px;">Click <strong>Select file from your computer</strong></li>
+                        <li style="margin-bottom: 10px;">Choose the downloaded file: <code>mindsoothe_schedule.ics</code></li>
+                        <li style="margin-bottom: 10px;">Select which calendar to add events to</li>
+                        <li style="margin-bottom: 10px;">Click <strong>Import</strong></li>
+                    </ol>
+                    <div style="background: #f0f4ff; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <strong>💡 Tip:</strong> All your scheduled tasks will appear as events in your calendar!
+                    </div>
+                    <button onclick="this.parentElement.parentElement.close()" style="background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; width: 100%;">
+                        Got it!
+                    </button>
+                </div>
+            `;
+            
+            // Create a custom modal dialog
+            const modal = document.createElement('dialog');
+            modal.style.cssText = `
+                border: none;
+                border-radius: 15px;
+                padding: 30px;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                max-width: 550px;
+                background: white;
+            `;
+            modal.innerHTML = guideHTML;
+            
+            document.body.appendChild(modal);
+            modal.showModal();
+            
+            // Close modal when clicking outside
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.close();
+                    document.body.removeChild(modal);
+                }
+            });
+            
+            // Remove modal when closed
+            modal.addEventListener('close', () => {
+                document.body.removeChild(modal);
+            });
         }
 
         function printSchedule() {
