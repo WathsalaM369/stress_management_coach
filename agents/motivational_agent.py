@@ -126,7 +126,7 @@ class MotivationalAgent:
             motivational_text = response.text.strip()
             
             # Clean and validate the response
-            if len(motivational_text) < 10 or len(motivational_text) > 300:
+            if len(motivational_text) < 10 or len(motivational_text) > 400:
                 raise ValueError(f"Invalid response length from Gemini: {len(motivational_text)} characters")
                 
             print(f"✅ Gemini generated motivational message: {len(motivational_text)} chars")

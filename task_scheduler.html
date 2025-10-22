@@ -241,6 +241,28 @@
             opacity: 0.6;
         }
 
+        .remove-task {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .remove-task:hover:not(:disabled) {
+            background: #dc2626;
+            transform: translateY(-2px);
+        }
+
+        .remove-task:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
         .task-duration-badge {
             background: #667eea;
             color: white;
@@ -357,6 +379,12 @@
         <h1>🗓️ Smart Task Scheduler</h1>
         <p class="subtitle">AI-powered scheduling with automatic time estimation</p>
 
+        <div style="text-align: right; margin-bottom: 10px;">
+            <button onclick="testDatabase()" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                🔍 Test Database
+            </button>
+        </div>
+
         <div class="progress-steps">
             <div class="step active" id="step1">1. Routine Setup</div>
             <div class="step" id="step2">2. Add Tasks</div>
@@ -383,6 +411,19 @@
             <h2 style="color: #333; margin-bottom: 20px;">Step 1: Set Your Weekly Routine</h2>
             <p style="margin-bottom: 20px; color: #666;">Select time slots for different activities throughout your week.</p>
             
+            <div class="info-box" style="background: #fef3c7; border-color: #f59e0b;">
+                <h4 style="color: #d97706;">⚠️ IMPORTANT: Mark Your Available Work Time</h4>
+                <p style="color: #92400e; margin: 10px 0;">
+                    <strong>Only time slots marked as WORK will be used for scheduling your tasks!</strong>
+                </p>
+                <ul style="color: #92400e; margin-left: 20px;">
+                    <li><strong>Work</strong> → Tasks will be scheduled here</li>
+                    <li><strong>Blocked/Sleep/Hobby/Leisure/Exercise</strong> → No tasks will be scheduled</li>
+                </ul>
+                <p style="color: #92400e; margin-top: 10px; font-weight: bold;">
+                    💡 Tip: Add multiple WORK slots throughout your day when you're available for task work!
+                </p>
+            </div>
             <div class="routine-setup" id="routineSetup"></div>
             <button class="btn-primary" onclick="saveRoutine()">Save Routine & Continue →</button>
         </div>
@@ -401,6 +442,17 @@
                 </ul>
             </div>
 
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0;">Your Tasks</h3>
+                <div>
+                    <button onclick="clearAllTasks()" style="background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-right: 10px;">
+                        🗑️ Clear All
+                    </button>
+                    <button onclick="viewSchedule()" style="background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">
+                        👁️ View Schedule
+                    </button>
+                </div>
+            </div>
             <div class="task-input-section">
                 <h3 style="margin-bottom: 15px;">Enter Your Tasks</h3>
                 <div class="task-form">
@@ -413,7 +465,7 @@
                     <input type="date" id="taskDeadline" placeholder="Deadline" required>
                 </div>
                 <button class="add-task-btn" onclick="addTask()" id="addTaskBtn">
-                    ➕ Add Task (AI will estimate duration)
+                    + Add Task (AI will estimate duration)
                 </button>
                 <div class="tasks-list" id="tasksList"></div>
             </div>
@@ -428,7 +480,9 @@
             <div style="text-align: center; margin-bottom: 20px;">
                 <button class="export-btn" onclick="exportToCalendar()">📅 Export to Calendar</button>
                 <button class="export-btn" onclick="printSchedule()">🖨️ Print Schedule</button>
-                <button class="export-btn" onclick="startOver()">🔄 Create New Schedule</button>
+                <button class="export-btn" onclick="editRoutine()" style="background: #f59e0b;">✏️ Edit Routine</button>
+                <button class="export-btn" onclick="editTasks()" style="background: #3b82f6;">📋 Edit Tasks</button>
+
             </div>
             
             <div id="warningsContainer"></div>
@@ -451,10 +505,80 @@
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async () => {
+            await checkExistingData(); // Check what user already has
             loadStressLevel();
-            initRoutineSetup();
             setMinDeadlineDate();
         });
+
+        async function checkExistingData() {
+            try {
+                console.log('🔍 Checking for existing user data...');
+                
+                // Check for existing routine
+                const routineResponse = await fetch('/api/scheduler/get-routine');
+                const routineData = await routineResponse.json();
+                
+                // Check for existing schedule
+                const scheduleResponse = await fetch('/api/scheduler/get-schedule');
+                const scheduleData = await scheduleResponse.json();
+                
+                // Check for existing tasks
+                const tasksResponse = await fetch('/api/scheduler/get-tasks');
+                const tasksData = await tasksResponse.json();
+                
+                const hasRoutine = routineData.status === 'success';
+                const hasSchedule = scheduleData.status === 'success';
+                const hasTasks = tasksData.status === 'success' && tasksData.tasks.length > 0;
+                
+                console.log('📊 Existing data:', { hasRoutine, hasSchedule, hasTasks });
+                
+                if (hasSchedule) {
+                    // User has a schedule - show it directly
+                    console.log('✅ Found existing schedule, displaying it');
+                    document.getElementById('step1').classList.add('completed');
+                    document.getElementById('step2').classList.add('completed');
+                    document.getElementById('step3').classList.add('active');
+                    document.getElementById('routineSection').style.display = 'none';
+                    document.getElementById('taskSection').style.display = 'none';
+                    document.getElementById('scheduleSection').style.display = 'block';
+                    displaySchedule(scheduleData.schedule);
+                    return;
+                }
+                
+                if (hasTasks) {
+                    // User has tasks but no schedule - load tasks
+                    console.log('✅ Found existing tasks, loading them');
+                    tasks = tasksData.tasks;
+                    document.getElementById('step1').classList.add('completed');
+                    document.getElementById('step2').classList.add('active');
+                    document.getElementById('routineSection').style.display = 'none';
+                    document.getElementById('taskSection').style.display = 'block';
+                    displayTasks();
+                    return;
+                }
+                
+                if (hasRoutine) {
+                    // User has routine - load it and allow editing
+                    console.log('✅ Found existing routine, loading it');
+                    weeklyRoutine = routineData.routine.weekly_routine;
+                    loadRoutineIntoUI(weeklyRoutine);
+                    // Show routine section with edit option
+                    document.getElementById('routineSection').style.display = 'block';
+                    showRoutineEditButtons();
+                } else {
+                    // New user - show routine setup
+                    console.log('🆕 New user, showing routine setup');
+                    initRoutineSetup();
+                    document.getElementById('routineSection').style.display = 'block';
+                }
+                
+            } catch (error) {
+                console.error('❌ Error checking existing data:', error);
+                // Fallback to normal flow
+                initRoutineSetup();
+                document.getElementById('routineSection').style.display = 'block';
+            }
+        }
 
         function setMinDeadlineDate() {
             const today = new Date().toISOString().split('T')[0];
@@ -616,6 +740,92 @@
             });
         }
 
+        function loadRoutineIntoUI(routine) {
+            const container = document.getElementById('routineSetup');
+            container.innerHTML = '';
+            
+            days.forEach(day => {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'day-routine';
+                
+                const daySlots = routine[day] || [];
+                
+                const slotsHTML = daySlots.map((slot, index) => `
+                    <div class="time-slot">
+                        <input type="time" value="${slot.start}">
+                        <span>-</span>
+                        <input type="time" value="${slot.end}">
+                        <select>
+                            <option value="work" ${slot.type === 'work' ? 'selected' : ''}>Work</option>
+                            <option value="hobby" ${slot.type === 'hobby' ? 'selected' : ''}>Hobby</option>
+                            <option value="leisure" ${slot.type === 'leisure' ? 'selected' : ''}>Leisure</option>
+                            <option value="exercise" ${slot.type === 'exercise' ? 'selected' : ''}>Exercise</option>
+                            <option value="sleep" ${slot.type === 'sleep' ? 'selected' : ''}>Sleep</option>
+                            <option value="blocked" ${slot.type === 'blocked' ? 'selected' : ''}>Blocked</option>
+                        </select>
+                        <button class="remove-slot" onclick="removeSlot(this)" ${index === 0 ? 'style="display:none;"' : ''}>×</button>
+                    </div>
+                `).join('');
+                
+                dayDiv.innerHTML = `
+                    <h3>${day}</h3>
+                    <div id="${day}-slots">
+                        ${slotsHTML || `
+                            <div class="time-slot">
+                                <input type="time" value="09:00">
+                                <span>-</span>
+                                <input type="time" value="12:00">
+                                <select>
+                                    <option value="work">Work</option>
+                                    <option value="hobby">Hobby</option>
+                                    <option value="leisure">Leisure</option>
+                                    <option value="exercise">Exercise</option>
+                                    <option value="sleep">Sleep</option>
+                                    <option value="blocked">Blocked</option>
+                                </select>
+                                <button class="remove-slot" onclick="removeSlot(this)" style="display:none;">×</button>
+                            </div>
+                        `}
+                    </div>
+                    <button class="add-slot-btn" onclick="addTimeSlot('${day}')">+ Add Time Slot</button>
+                `;
+                container.appendChild(dayDiv);
+            });
+        }
+
+        function showRoutineEditButtons() {
+            const routineSection = document.getElementById('routineSection');
+            const existingButtons = routineSection.querySelector('.edit-buttons');
+            
+            if (existingButtons) return; // Already added
+            
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'edit-buttons';
+            buttonContainer.style.cssText = 'text-align: center; margin: 20px 0;';
+            buttonContainer.innerHTML = `
+                <button class="btn-primary" onclick="updateRoutine()" style="display: inline-block; margin: 0 10px;">
+                    💾 Update Routine
+                </button>
+                <button class="btn-primary" onclick="skipToTasks()" style="display: inline-block; margin: 0 10px; background: #10b981;">
+                    ➡️ Skip to Tasks
+                </button>
+            `;
+            
+            routineSection.querySelector('.btn-primary').replaceWith(buttonContainer);
+        }
+
+        async function updateRoutine() {
+            await saveRoutine();
+        }
+
+        function skipToTasks() {
+            document.getElementById('step1').classList.add('completed');
+            document.getElementById('step2').classList.add('active');
+            document.getElementById('routineSection').style.display = 'none';
+            document.getElementById('taskSection').style.display = 'block';
+            loadExistingTasks();
+        }
+
         function addTimeSlot(day) {
             const slotsDiv = document.getElementById(`${day}-slots`);
             const slotDiv = document.createElement('div');
@@ -643,19 +853,35 @@
 
         async function saveRoutine() {
             weeklyRoutine = {};
+            let totalWorkSlots = 0;
+            
             days.forEach(day => {
                 const slots = document.querySelectorAll(`#${day}-slots .time-slot`);
                 weeklyRoutine[day] = [];
                 slots.forEach(slot => {
                     const inputs = slot.querySelectorAll('input[type="time"]');
                     const select = slot.querySelector('select');
-                    weeklyRoutine[day].push({
+                    const slotData = {
                         start: inputs[0].value,
                         end: inputs[1].value,
                         type: select.value
-                    });
+                    };
+                    weeklyRoutine[day].push(slotData);
+                    
+                    if (select.value === 'work') {
+                        totalWorkSlots++;
+                    }
                 });
             });
+            
+            // Validate that user has at least some work slots
+            if (totalWorkSlots === 0) {
+                alert('⚠️ No "Work" time slots found!\n\nYou must mark at least some time slots as "Work" type where tasks can be scheduled.\n\nPlease add work slots and try again.');
+                return;
+            }
+            
+            console.log('💾 Saving routine with', totalWorkSlots, 'work slots');
+            console.log('📊 Routine data:', JSON.stringify(weeklyRoutine, null, 2));
 
             try {
                 const response = await fetch('/api/scheduler/save-routine', {
@@ -675,6 +901,17 @@
                 }
             } catch (error) {
                 alert('Error: ' + error.message);
+            }
+            if (data.status === 'success') {
+                console.log('✅ Routine saved successfully');
+                
+                // Immediately verify what was saved
+                await loadAndDisplayRoutine();
+                
+                document.getElementById('step1').classList.add('completed');
+                document.getElementById('step2').classList.add('active');
+                document.getElementById('routineSection').style.display = 'none';
+                document.getElementById('taskSection').style.display = 'block';
             }
         }
 
@@ -743,12 +980,35 @@
                 tasks[taskIndex].duration = estimatedDuration;
                 tasks[taskIndex].estimating = false;
                 displayTasks();
+                await saveTasksToDatabase();
             }
 
             document.getElementById('taskName').value = '';
             document.getElementById('taskDeadline').value = '';
             btn.disabled = false;
             btn.textContent = '➕ Add Task (AI will estimate duration)';
+        }
+
+        async function saveTasksToDatabase() {
+            try {
+                console.log('💾 Saving tasks to database...', tasks);
+                
+                const response = await fetch('/api/scheduler/save-tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tasks: tasks })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    console.log('✅ Tasks saved successfully');
+                } else {
+                    console.error('❌ Failed to save tasks:', data.message);
+                }
+            } catch (error) {
+                console.error('❌ Error saving tasks:', error);
+            }
         }
 
         function displayTasks() {
@@ -780,9 +1040,66 @@
             `).join('');
         }
 
-        function removeTask(id) {
-            tasks = tasks.filter(t => t.id !== id);
-            displayTasks();
+        async function loadExistingTasks() {
+            try {
+                const response = await fetch('/api/scheduler/get-tasks');
+                const data = await response.json();
+                
+                if (data.status === 'success' && data.tasks.length > 0) {
+                    console.log('✅ Loading existing tasks:', data.tasks);
+                    tasks = data.tasks;
+                    displayTasks();
+                    
+                    // Show info message
+                    const taskSection = document.getElementById('taskSection');
+                    const existingInfo = taskSection.querySelector('.existing-tasks-info');
+                    
+                    if (!existingInfo) {
+                        const infoBox = document.createElement('div');
+                        infoBox.className = 'existing-tasks-info info-box';
+                        infoBox.style.background = '#d1fae5';
+                        infoBox.style.borderColor = '#10b981';
+                        infoBox.innerHTML = `
+                            <h4 style="color: #065f46;">✅ Existing Tasks Loaded</h4>
+                            <p style="color: #047857;">
+                                You have ${tasks.length} task(s) from previous sessions. 
+                                You can add more tasks below or generate a schedule with current tasks.
+                            </p>
+                        `;
+                        taskSection.insertBefore(infoBox, taskSection.firstChild);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading tasks:', error);
+            }
+        }
+
+        async function removeTask(id) {
+            if (!confirm('Delete this task permanently?')) return;
+            
+            try {
+                // Remove from backend database
+                const response = await fetch('/api/scheduler/delete-task', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task_id: id })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    // Remove from frontend array
+                    tasks = tasks.filter(t => t.id !== id);
+                    displayTasks();
+                    console.log('✅ Task deleted from database');
+                    await saveTasksToDatabase();
+                } else {
+                    alert('Error deleting task: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error deleting task:', error);
+                alert('Failed to delete task');
+            }
         }
 
         async function generateSchedule() {
@@ -804,17 +1121,24 @@
             document.getElementById('loading').style.display = 'block';
             document.getElementById('taskSection').style.display = 'none';
 
-            const today = new Date();
-            const monday = new Date(today.setDate(today.getDate() - today.getDay() + 1));
-            const weekStart = monday.toISOString().split('T')[0];
-
+            // Get current date and time
+            const now = new Date();
+            const today = now.toISOString().split('T')[0];
+            const currentTime = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+            
+            console.log('📅 Current Date:', today);
+            console.log('⏰ Current Time:', currentTime);
+            console.log('🕐 Current Time Object:', now);
+            console.log('📅 Scheduling from TODAY onwards, starting from', currentTime);
+            
             try {
                 const response = await fetch('/api/scheduler/generate-schedule', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         tasks,
-                        week_start: weekStart,
+                        week_start: today,
+                        current_time: currentTime,  // CRITICAL: Pass current time in HH:MM format
                         stress_score: stressData.stress_score,
                         stress_level: stressData.stress_level,
                         mood: 'neutral',
@@ -825,6 +1149,9 @@
                 const data = await response.json();
 
                 if (data.status === 'success') {
+                    console.log('✅ Schedule generated successfully');
+                    console.log('🕐 Scheduling was done from:', data.schedule.scheduling_time_used || currentTime);
+                    
                     document.getElementById('step2').classList.add('completed');
                     document.getElementById('step3').classList.add('active');
                     displaySchedule(data.schedule);
@@ -834,6 +1161,7 @@
                 }
             } catch (error) {
                 alert('Error: ' + error.message);
+                console.error('Schedule generation error:', error);
                 document.getElementById('taskSection').style.display = 'block';
             } finally {
                 document.getElementById('loading').style.display = 'none';
@@ -903,11 +1231,64 @@
                         a.download = exportData.filename;
                         a.click();
                         window.URL.revokeObjectURL(url);
+
+                        showGoogleCalendarGuide();
                     }
                 }
             } catch (error) {
                 alert('Error exporting calendar: ' + error.message);
             }
+        }
+
+        function showGoogleCalendarGuide() {
+            const guideHTML = `
+                <div style="text-align: left; max-width: 500px;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;">📅 How to Import into Google Calendar</h3>
+                    <ol style="margin-left: 20px; margin-bottom: 20px;">
+                        <li style="margin-bottom: 10px;">Go to <a href="https://calendar.google.com" target="_blank" style="color: #667eea;">Google Calendar</a></li>
+                        <li style="margin-bottom: 10px;">On the left side, click <strong>Settings</strong> ⚙️</li>
+                        <li style="margin-bottom: 10px;">Click <strong>Import & Export</strong></li>
+                        <li style="margin-bottom: 10px;">Click <strong>Select file from your computer</strong></li>
+                        <li style="margin-bottom: 10px;">Choose the downloaded file: <code>mindsoothe_schedule.ics</code></li>
+                        <li style="margin-bottom: 10px;">Select which calendar to add events to</li>
+                        <li style="margin-bottom: 10px;">Click <strong>Import</strong></li>
+                    </ol>
+                    <div style="background: #f0f4ff; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <strong>💡 Tip:</strong> All your scheduled tasks will appear as events in your calendar!
+                    </div>
+                    <button onclick="this.parentElement.parentElement.close()" style="background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; width: 100%;">
+                        Got it!
+                    </button>
+                </div>
+            `;
+            
+            // Create a custom modal dialog
+            const modal = document.createElement('dialog');
+            modal.style.cssText = `
+                border: none;
+                border-radius: 15px;
+                padding: 30px;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                max-width: 550px;
+                background: white;
+            `;
+            modal.innerHTML = guideHTML;
+            
+            document.body.appendChild(modal);
+            modal.showModal();
+            
+            // Close modal when clicking outside
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.close();
+                    document.body.removeChild(modal);
+                }
+            });
+            
+            // Remove modal when closed
+            modal.addEventListener('close', () => {
+                document.body.removeChild(modal);
+            });
         }
 
         function printSchedule() {
@@ -923,6 +1304,134 @@
                 document.getElementById('step1').classList.add('active');
                 document.getElementById('scheduleSection').style.display = 'none';
                 document.getElementById('routineSection').style.display = 'block';
+            }
+        }
+
+        async function loadAndDisplayRoutine() {
+            try {
+                const response = await fetch('/api/scheduler/get-routine');
+                const data = await response.json();
+                
+                if (data.status === 'success' && data.routine) {
+                    const routine = data.routine.weekly_routine;
+                    console.log('✅ Loaded routine:', routine);
+                    
+                    // Display summary
+                    let workSlotCount = 0;
+                    Object.entries(routine).forEach(([day, slots]) => {
+                        const dayWorkSlots = slots.filter(s => s.type === 'work').length;
+                        workSlotCount += dayWorkSlots;
+                        console.log(`📅 ${day}: ${slots.length} slots (${dayWorkSlots} work)`);
+                    });
+                    
+                    console.log(`📊 Total work slots: ${workSlotCount}`);
+                    
+                    if (workSlotCount === 0) {
+                        alert('⚠️ Warning: Your saved routine has no "Work" slots!\nPlease update your routine to mark available work time.');
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading routine:', error);
+            }
+        }
+
+        function editRoutine() {
+            if (confirm('Do you want to edit your weekly routine?')) {
+                document.getElementById('scheduleSection').style.display = 'none';
+                document.getElementById('routineSection').style.display = 'block';
+                document.getElementById('step3').classList.remove('active');
+                document.getElementById('step1').classList.add('active');
+                
+                // Load current routine
+                fetch('/api/scheduler/get-routine')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            weeklyRoutine = data.routine.weekly_routine;
+                            loadRoutineIntoUI(weeklyRoutine);
+                            showRoutineEditButtons();
+                        }
+                    })
+                    .catch(error => console.error('Error loading routine:', error));
+            }
+        }
+
+        function editTasks() {
+            if (confirm('Do you want to edit your tasks?')) {
+                document.getElementById('scheduleSection').style.display = 'none';
+                document.getElementById('taskSection').style.display = 'block';
+                document.getElementById('step3').classList.remove('active');
+                document.getElementById('step2').classList.add('active');
+                
+                // Load current tasks
+                loadExistingTasks();
+            }
+        }
+
+        function viewSchedule() {
+            fetch('/api/scheduler/get-schedule')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        document.getElementById('routineSection').style.display = 'none';
+                        document.getElementById('taskSection').style.display = 'none';
+                        document.getElementById('scheduleSection').style.display = 'block';
+                        document.getElementById('step1').classList.add('completed');
+                        document.getElementById('step2').classList.add('completed');
+                        document.getElementById('step3').classList.add('active');
+                        displaySchedule(data.schedule);
+                    } else {
+                        alert('No schedule found. Please create one first.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading schedule:', error);
+                    alert('Error loading schedule');
+                });
+        }
+
+        async function clearAllTasks() {
+            if (!confirm('Delete ALL tasks permanently? This cannot be undone.')) return;
+            
+            try {
+                const response = await fetch('/api/scheduler/clear-all-tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    tasks = [];
+                    displayTasks();
+                    console.log('✅ All tasks cleared from database');
+                } else {
+                    alert('Error clearing tasks: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error clearing tasks:', error);
+                alert('Failed to clear tasks');
+            }
+        }
+
+        async function testDatabase() {
+            try {
+                const response = await fetch('/api/scheduler/test-db');
+                const data = await response.json();
+                
+                console.log('=' .repeat(60));
+                console.log('🔍 DATABASE TEST RESULTS');
+                console.log('=' .repeat(60));
+                console.log(JSON.stringify(data, null, 2));
+                
+                alert(`Database Test Results:\n\n` +
+                    `Routines: ${data.database.routines.user} found\n` +
+                    `Tasks: ${data.database.tasks.user} found\n` +
+                    `Schedules: ${data.database.schedules.user} found\n\n` +
+                    `Check console for details`);
+            } catch (error) {
+                console.error('Database test failed:', error);
+                alert('Database test failed: ' + error.message);
             }
         }
     </script>

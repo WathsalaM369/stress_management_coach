@@ -139,22 +139,22 @@
                         <div class="scene-option" data-scene="beach" data-stress="1.5">
                             <div class="scene-visual beach"></div>
                             <span>Beach</span>
-                           <!--  <small>Relaxed</small>-->
+                            
                         </div>
                         <div class="scene-option" data-scene="nature" data-stress="2.0">
                             <div class="scene-visual nature"></div>
                             <span>Nature</span>
-                           <!-- <small>Calm</small>-->
+                            
                         </div>
                         <div class="scene-option" data-scene="office" data-stress="6.0">
                             <div class="scene-visual office"></div>
                             <span>Office</span>
-                            <!-- <small>Busy</small> -->
+                            
                         </div>
                         <div class="scene-option" data-scene="traffic" data-stress="7.5">
                             <div class="scene-visual traffic"></div>
                             <span>Traffic</span>
-                            <!-- <small>Frustrated</small> -->
+                            
                         </div>
                     </div>
                 </div>
@@ -613,7 +613,7 @@
                 </div>
             </section>
 
-           <!-- Motivation Section -->
+            <!-- Motivation Section -->
 <section class="motivation-section" id="motivationSection" style="display: none;">
     <div class="motivation-container">
         <!-- Header Section -->
@@ -629,8 +629,7 @@
         <div class="motivation-content">
             <!-- Voice Selection -->
             <div class="voice-selection">
-                <h3>🎵 Choose Your Coach's Voice</h3>
-                <p>Select the voice that feels most comforting to you</p>
+                
                 <div class="voice-options">
                     <div class="voice-option active" data-voice="female" onclick="selectVoice('female')">
                         <span class="voice-icon">👩</span>
@@ -656,6 +655,7 @@
                     <span id="playIcon">▶️</span>
                     <span id="playText">Play Message</span>
                 </button>
+                <div id="audioWave" style="width: 0%; height: 4px; background: #4facfe; transition: width 0.1s;"></div>
                 <div class="audio-progress">
                     <span class="progress-time" id="currentTime">0:00</span>
                     <div class="progress-bar-container" id="progressBarContainer">
@@ -676,16 +676,7 @@
                     <strong>Breathe</strong>
                     <small>2-minute calm</small>
                 </div>
-                <div class="action-card" onclick="showAffirmations()">
-                    <span class="action-icon">💝</span>
-                    <strong>Affirmations</strong>
-                    <small>Positive boost</small>
-                </div>
-                <div class="action-card" onclick="saveMotivation()">
-                    <span class="action-icon">💾</span>
-                    <strong>Save</strong>
-                    <small>Keep this message</small>
-                </div>
+                
                 <div class="action-card" onclick="goBackToResults()">
                     <span class="action-icon">📊</span>
                     <strong>Back to Results</strong>

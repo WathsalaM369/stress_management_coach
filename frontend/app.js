@@ -1434,30 +1434,9 @@ window.debugAuth = function() {
 
 //Vinusha
 // Motivation functionality
-//Vinusha
-// Motivation functionality
 let currentMotivationData = null;
+let audioElement = null;
 let isAudioPlaying = false;
-let currentVoice = "female"; // Only female voice now
-
-// Voice selection function (simplified since only one voice)
-function selectVoice(voice) {
-    currentVoice = voice;
-    
-    // Update UI - only female option exists now
-    document.querySelectorAll('.voice-option').forEach(option => {
-        option.classList.remove('active');
-    });
-    document.querySelector(`[data-voice="${voice}"]`).classList.add('active');
-    
-    // Update voice indicator
-    const voiceIndicator = document.getElementById('currentVoice');
-    if (voiceIndicator) {
-        voiceIndicator.innerHTML = '👩 Female';
-    }
-    
-    console.log(`Voice set to: ${voice}`);
-}
 
 function showMotivationPage() {
     // Hide results and show motivation section
@@ -1470,9 +1449,6 @@ function showMotivationPage() {
     
     // Update motivation section with stress data
     document.getElementById('motivationStressLevel').textContent = stressScore;
-    
-    // Initialize voice selection
-    selectVoice(currentVoice);
     
     // Generate motivational message
     generateMotivationalMessage(stressScore, stressLevel);
@@ -1504,7 +1480,6 @@ async function generateMotivationalMessage(stressScore, stressLevel) {
                 stress_category: stressLevel,
                 user_message: '',
                 generate_audio: true,
-                voice_gender: currentVoice, // Always female now
                 play_audio: false
             })
         });
@@ -1516,12 +1491,6 @@ async function generateMotivationalMessage(stressScore, stressLevel) {
         typingIndicator.style.display = 'none';
         motivationText.style.display = 'block';
         motivationText.textContent = data.motivational_message;
-        
-        // Update voice used indicator (always female)
-        const voiceIndicator = document.getElementById('currentVoice');
-        if (voiceIndicator) {
-            voiceIndicator.innerHTML = '👩 Female';
-        }
         
         // Enable audio if available
         if (data.audio_file_path) {
@@ -1538,171 +1507,179 @@ async function generateMotivationalMessage(stressScore, stressLevel) {
 
 async function toggleAudio() {
     if (!currentMotivationData || !currentMotivationData.audio_file_path) {
-        console.error('❌ No audio data available');
+        console.log("No audio file available");
         return;
     }
-    
+
+    initAudioElement();
+
     const playButton = document.getElementById('playButton');
-    const playText = document.getElementById('playText');
     const playIcon = document.getElementById('playIcon');
-    
-    console.log('🔊 Toggle audio called, current state:', isAudioPlaying);
-    
+    const playText = document.getElementById('playText');
+
     if (!isAudioPlaying) {
-        // Start playing
-        console.log('▶️ Starting audio playback...');
-        playButton.classList.add('playing');
-        playText.textContent = 'Playing...';
-        playIcon.textContent = '⏸️';
-        playButton.disabled = true;
-        
+        // PLAY
         try {
-            const response = await fetch('/api/play-audio', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    audio_path: currentMotivationData.audio_file_path
-                })
-            });
+            console.log("Playing audio:", currentMotivationData.audio_file_path);
             
-            const result = await response.json();
-            console.log('🔊 Play audio response:', result);
-            
-            if (result.success) {
-                isAudioPlaying = true;
-                playButton.disabled = false;
-                
-                // Start progress animation
-                animateAudioProgress();
-                
-                // Set up completion detection
-                checkAudioCompletion();
-                
-            } else {
-                console.error('❌ Audio playback failed:', result.error);
-                showTemporaryMessage('❌ Audio playback failed: ' + result.error);
-                resetAudioControls();
+            // Set the audio source if it changed
+            if (audioElement.src !== currentMotivationData.audio_file_path) {
+                audioElement.src = currentMotivationData.audio_file_path;
             }
+
+            // Play the audio
+            await audioElement.play();
+            isAudioPlaying = true;
+
+            // Update UI
+            playIcon.textContent = '⏸️';
+            playText.textContent = 'Pause';
+            playButton.classList.add('playing');
+
         } catch (error) {
-            console.error('❌ Error playing audio:', error);
-            showTemporaryMessage('❌ Error playing audio');
+            console.error('Error playing audio:', error);
+            alert('Could not play audio. Please try again.');
+            isAudioPlaying = false;
             resetAudioControls();
         }
-        
+
     } else {
-        // Stop playing
-        console.log('⏹️ Stopping audio playback...');
-        resetAudioControls();
-        
-        // Also stop via backend
-        try {
-            await fetch('/api/stop-audio', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-        } catch (error) {
-            console.error('Error stopping audio:', error);
-        }
+        // PAUSE
+        audioElement.pause();
+        isAudioPlaying = false;
+
+        // Update UI
+        playIcon.textContent = '▶️';
+        playText.textContent = 'Play Message';
+        playButton.classList.remove('playing');
     }
 }
 
-function animateAudioProgress() {
-    const progressBarFill = document.getElementById('progressBarFill');
-    const currentTime = document.getElementById('currentTime');
-    const durationTime = document.getElementById('durationTime');
-    
-    if (!progressBarFill) return;
-    
-    const duration = currentMotivationData.audio_duration || 10; // Default 10 seconds
-    let progress = 0;
-    
-    console.log('🎵 Starting audio progress animation, duration:', duration);
-    
-    const interval = setInterval(() => {
-        if (!isAudioPlaying) {
-            clearInterval(interval);
-            return;
-        }
-        
-        progress += (100 / (duration * 10)); // Update 10 times per second
-        
-        if (progress >= 100) {
-            progress = 100;
-            clearInterval(interval);
-            setTimeout(() => {
-                resetAudioControls();
-            }, 500);
-        }
-        
-        // Update progress bar
-        progressBarFill.style.width = `${progress}%`;
-        
-        // Update time display
-        const currentSeconds = Math.floor((progress / 100) * duration);
-        const durationSeconds = Math.floor(duration);
-        
-        if (currentTime) {
-            currentTime.textContent = formatTime(currentSeconds);
-        }
-        if (durationTime) {
-            durationTime.textContent = formatTime(durationSeconds);
-        }
-        
-    }, 100);
+function initAudioElement() {
+    if (!audioElement) {
+        audioElement = new Audio();
+        audioElement.addEventListener('ended', () => {
+            isAudioPlaying = false;
+            resetAudioControls();
+        });
+        audioElement.addEventListener('play', () => {
+            isAudioPlaying = true;
+            updatePlayButtonUI();
+        });
+        audioElement.addEventListener('pause', () => {
+            isAudioPlaying = false;
+            updatePlayButtonUI();
+        });
+        audioElement.addEventListener('timeupdate', updateProgressBar);
+        audioElement.addEventListener('loadedmetadata', updateDuration);
+    }
 }
 
-function checkAudioCompletion() {
-    // Check every second if audio is still playing
-    const completionInterval = setInterval(async () => {
-        if (!isAudioPlaying) {
-            clearInterval(completionInterval);
-            return;
-        }
-        
-        try {
-            const response = await fetch('/api/audio-status');
-            const status = await response.json();
-            
-            if (!status.is_playing && isAudioPlaying) {
-                console.log('✅ Audio completed naturally');
-                clearInterval(completionInterval);
-                resetAudioControls();
-            }
-        } catch (error) {
-            console.error('Error checking audio status:', error);
-        }
-    }, 1000);
+function updatePlayButtonUI() {
+    const playButton = document.getElementById('playButton');
+    const playIcon = document.getElementById('playIcon');
+    const playText = document.getElementById('playText');
+
+    if (isAudioPlaying) {
+        playIcon.textContent = '⏸️';
+        playText.textContent = 'Pause';
+        playButton.classList.add('playing');
+    } else {
+        playIcon.textContent = '▶️';
+        playText.textContent = 'Play Message';
+        playButton.classList.remove('playing');
+    }
+}
+
+function updateProgressBar() {
+    if (!audioElement || !audioElement.duration) return;
+
+    const progressBarFill = document.getElementById('progressBarFill');
+    const progressBarHandle = document.getElementById('progressBarHandle');
+    const currentTimeEl = document.getElementById('currentTime');
+
+    const percentage = (audioElement.currentTime / audioElement.duration) * 100;
+
+    if (progressBarFill) progressBarFill.style.width = percentage + '%';
+    if (progressBarHandle) progressBarHandle.style.left = percentage + '%';
+    if (currentTimeEl) currentTimeEl.textContent = formatTime(audioElement.currentTime);
+}
+
+function updateDuration() {
+    const durationEl = document.getElementById('durationTime');
+    if (durationEl && audioElement && audioElement.duration) {
+        durationEl.textContent = formatTime(audioElement.duration);
+    }
 }
 
 function formatTime(seconds) {
+    if (isNaN(seconds)) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
+function enableAudioPlayback(audioUrl) {
+    console.log("🎵 Enabling audio playback for:", audioUrl);
+    
+    // Ensure audio element exists
+    initAudioElement();
+    
+    // Update the audio element's source
+    audioElement.src = audioUrl;
+    console.log("📝 Audio element src set to:", audioElement.src);
+    
+    // Store in currentMotivationData
+    currentMotivationData = currentMotivationData || {};
+    currentMotivationData.audio_file_path = audioUrl;
+
+    const playButton = document.getElementById('playButton');
+    if (playButton) {
+        playButton.disabled = false;
+        console.log("✅ Play button enabled");
+    }
+
+    resetAudioControls();
+}
+
+function setupProgressBarClick() {
+    const progressBarContainer = document.getElementById('progressBarContainer');
+    
+    if (!progressBarContainer) return;
+
+    progressBarContainer.addEventListener('click', (e) => {
+        if (!audioElement || !audioElement.duration) return;
+
+        const rect = progressBarContainer.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const percentage = clickX / rect.width;
+        audioElement.currentTime = percentage * audioElement.duration;
+    });
+}
+
+function animateAudioWave(audioWave) {
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += 2;
+        audioWave.style.width = progress + '%';
+        
+        if (progress >= 100) {
+            clearInterval(interval);
+            setTimeout(() => {
+                resetAudioControls();
+            }, 500);
+        }
+    }, 100);
+}
+
 function resetAudioControls() {
     const playButton = document.getElementById('playButton');
     const playText = document.getElementById('playText');
-    const playIcon = document.getElementById('playIcon');
-    const progressBarFill = document.getElementById('progressBarFill');
-    const currentTime = document.getElementById('currentTime');
+    const audioWave = document.getElementById('audioWave');
     
-    playButton.classList.remove('playing');
-    playText.textContent = 'Play Message';
-    playIcon.textContent = '▶️';
-    playButton.disabled = false;
-    
-    if (progressBarFill) {
-        progressBarFill.style.width = '0%';
-    }
-    if (currentTime) {
-        currentTime.textContent = '0:00';
-    }
-    
+    if (playButton) playButton.classList.remove('playing');
+    if (playText) playText.textContent = 'Play Message';
+    if (audioWave) audioWave.style.width = '0%';  // Only set if element exists
     isAudioPlaying = false;
 }
 
@@ -1735,10 +1712,97 @@ function saveMotivation() {
     }
 }
 
-function generateNewMotivation() {
-    const stressScore = parseFloat(document.getElementById('motivationStressLevel').textContent);
-    const stressLevel = document.getElementById('levelBadge').textContent;
-    generateMotivationalMessage(stressScore, stressLevel);
+async function generateNewMotivation() {
+    try {
+        console.log("Generating new motivation...");
+        
+        const scoreElement = document.getElementById('stressScore');
+        const levelElement = document.getElementById('levelBadge');
+        
+        if (!scoreElement || !levelElement) {
+            console.error("Could not find stress score elements");
+            showNotification('❌ Could not find stress data', 'error');
+            return;
+        }
+
+        const stressLevel = parseFloat(scoreElement.textContent);
+        const stressCategory = levelElement.textContent;
+
+        console.log("Stress data:", { stressLevel, stressCategory });
+
+        // Show loading indicator
+        const typingIndicator = document.getElementById('typingIndicator');
+        if (typingIndicator) typingIndicator.style.display = 'block';
+
+        const motivationText = document.getElementById('motivationText');
+        if (motivationText) motivationText.innerHTML = '';
+
+        // Disable play button while generating
+        const playButton = document.getElementById('playButton');
+        if (playButton) playButton.disabled = true;
+
+        // Call backend to generate motivation
+        const response = await fetch('/api/generate-motivation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                stress_level: stressLevel,
+                stress_category: stressCategory,
+                user_message: `I'm feeling ${stressCategory.toLowerCase()} stress`,
+                generate_audio: true,
+                voice_gender: 'female'
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("Motivation response:", data);
+
+        // Hide loading indicator FIRST
+        if (typingIndicator) typingIndicator.style.display = 'none';
+
+        // Display message IMMEDIATELY
+        if (motivationText && data.motivational_message) {
+            motivationText.textContent = data.motivational_message;
+            motivationText.style.display = 'block';
+        }
+
+        // Handle audio separately - no blocking
+        if (data.audio_file_path) {
+            console.log("✅ Audio URL received:", data.audio_file_path);
+            // Audio path is already a full URL like /api/audio-stream/uuid
+            enableAudioPlayback(data.audio_file_path);
+            showNotification('✅ New motivation generated!', 'success');
+        } else {
+            console.warn("⚠️ No audio file in response");
+            if (playButton) playButton.disabled = true;
+            showNotification('✅ Motivation generated (audio unavailable)', 'info');
+        }
+
+    } catch (error) {
+        console.error("❌ Error generating motivation:", error);
+        console.error("Full error object:", error);
+        
+        // Hide loading
+        const typingIndicator = document.getElementById('typingIndicator');
+        if (typingIndicator) typingIndicator.style.display = 'none';
+        
+        // Show specific error message
+        showNotification(`❌ Error: ${error.message}`, 'error');
+        
+        // Display fallback text
+        const motivationText = document.getElementById('motivationText');
+        if (motivationText) {
+            motivationText.textContent = "I'm here for you. Take a deep breath. You've got this.";
+            motivationText.style.display = 'block';
+        }
+    }
 }
 
 function showTemporaryMessage(message) {
@@ -1750,7 +1814,5 @@ function showTemporaryMessage(message) {
     setTimeout(() => {
         motivationText.textContent = originalText;
     }, 3000);
+    
 }
-
-// Add global function for voice selection
-window.selectVoice = selectVoice;
