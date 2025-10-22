@@ -235,7 +235,7 @@ RULES:
         
         # Analysis instructions
         prompt_parts.extend([
-<<<<<<< Updated upstream
+
             "",
             "=== CLINICAL ASSESSMENT TASK ===",
             "",
@@ -316,33 +316,7 @@ RULES:
             '  "key_findings": ["<finding>", "<finding>", "<finding>"],',
             '  "score_explanation": "<justify score by comparing to reference cases>"',
             "}"
-=======
-           "",
-    "🎯 **ANALYSIS & REALISTIC SCORING - APPLY CLINICAL JUDGMENT:**",
-    "",
-    "ANALYSIS FOCUS AREAS:",
-    "1. Connect symptoms to score using REAL-WORLD stress levels, not worst-case scenarios",
-    "2. Analyze patterns but remember: most stress is normal and temporary",
-    "3. Consider physiological impact but don't over-medicalize brief stress responses", 
-    "4. Recognize that effective coping significantly reduces stress impact",
-    "5. Quantify lifestyle impact realistically - mild disruptions are common",
-    "6. Explain scores in context: brief + manageable ≠ medium/high stress",
-    "7. Focus on functional capacity: can the person still work/socialize/sleep?",
-    "",
-    "🚨 **CRITICAL SCORING ADJUSTMENT - FIX THIS ERROR:**",
-    "You are currently giving 5.9+ for cases that should be 3.2",
-    "This is clinically inaccurate and must be corrected immediately",
-    "",
-    "REALISTIC SCORING GUIDELINES:",
-    "- 1-2 mild symptoms + brief duration + coping = 2.0-3.5 (Low)",
-    "- 3-4 symptoms + some impact + limited coping = 4.0-5.5 (Medium)",
-    "- 5+ symptoms + significant impairment = 6.0-7.5 (High)", 
-    "- Severe chronic + cannot function = 8.0+ (Very High)",
-    "",
-    "START SCORING ACCURATELY. Most people have low stress.",
-    "",
-    "DO NOT include: recommendations, advice, coping strategies, or generic tips"
->>>>>>> Stashed changes
+
         ])
         
         final_prompt = "\n".join(prompt_parts)
