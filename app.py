@@ -512,7 +512,7 @@ def get_activity_recommendations():
             model_name = os.getenv('GEMINI_MODEL', 'models/gemini-2.0-flash-001')
             print(f"🤖 Using model: {model_name}")
             
-            prompt = f"""You are a stress management expert. Generate 4-5 personalized activity recommendations for someone with:
+            prompt = f"""You are a stress management expert. Generate 5-6 personalized activity recommendations for someone with:
 
 Stress Level: {stress_level} ({stress_score}/10)
 Available Time: {available_minutes} minutes
