@@ -329,7 +329,7 @@ function createBubbleGame() {
     moodBubbles.forEach((mood) => {
         const bubble = document.createElement('div');
         bubble.className = `bubble ${mood.type}`;
-        //bubble.textContent = mood.label;
+        bubble.textContent = mood.label;
         
         const x = Math.random() * 70 + 15;
         const y = Math.random() * 60 + 20;

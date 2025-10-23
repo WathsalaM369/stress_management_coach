@@ -2082,7 +2082,7 @@ def test_endpoint():
         "message": "Backend is working!",
         "timestamp": datetime.now().isoformat(),
         "status": "success",
-        "gemini_enabled": estimator.use_llm,
+        "gemini_enabled": flask_estimator.use_llm,
         "has_api_key": bool(os.getenv('GOOGLE_API_KEY'))
     })
 
