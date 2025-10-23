@@ -452,70 +452,6 @@ pytest -v
 
 ---
 
-## 🤝 Contributing
-
-We welcome contributions from the community! Here's how you can help:
-
-### Getting Started
-
-1. **Fork the repository**
-2. **Clone your fork**:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/stress_management_coach.git
-   cd stress_management_coach
-   ```
-3. **Create a feature branch**:
-   ```bash
-   git checkout -b feature/AmazingFeature
-   ```
-4. **Make your changes**
-5. **Run tests**:
-   ```bash
-   pytest
-   ```
-6. **Commit your changes**:
-   ```bash
-   git commit -m 'Add some AmazingFeature'
-   ```
-7. **Push to the branch**:
-   ```bash
-   git push origin feature/AmazingFeature
-   ```
-8. **Open a Pull Request**
-
-### Contribution Guidelines
-
-- Follow PEP 8 style guide for Python code
-- Write clear, descriptive commit messages
-- Add tests for new features
-- Update documentation as needed
-- Ensure all tests pass before submitting PR
-- Keep pull requests focused on a single feature/fix
-
-### Code Style
-
-```python
-# Use meaningful variable names
-stress_level = calculate_stress_score(responses)
-
-# Add docstrings to functions
-def analyze_stress(data: dict) -> dict:
-    """
-    Analyze stress data using AI models.
-    
-    Args:
-        data: Dictionary containing stress assessment responses
-        
-    Returns:
-        Dictionary with analysis results and recommendations
-    """
-    pass
-
-# Use type hints
-def get_recommendations(stress_level: str, preferences: List[str]) -> List[dict]:
-    pass
-```
-
 ### Reporting Issues
 
 Found a bug or have a feature request? Please:
@@ -537,110 +473,30 @@ Thanks to everyone who has contributed to this project!
   <img src="https://contrib.rocks/image?repo=WathsalaM369/stress_management_coach" />
 </a>
 
-### Core Team
 
-- **Wathsala M** - *Project Lead & Developer* - [@WathsalaM369](https://github.com/WathsalaM369)
-
-### Special Thanks
-
-- SLIIT (Sri Lanka Institute of Information Technology) - Y3-S1 IRWA Course
-- Google Gemini AI Team for the powerful AI API
-- Open-source community for amazing libraries
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-```
-MIT License
-
-Copyright (c) 2025 Wathsala M
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-```
-
----
-
-## 📞 Contact
-
-**Project Maintainer**: Wathsala M
-
-- **GitHub**: [@WathsalaM369](https://github.com/WathsalaM369)
-- **Project Link**: [https://github.com/WathsalaM369/stress_management_coach](https://github.com/WathsalaM369/stress_management_coach)
-- **Institution**: SLIIT - Sri Lanka Institute of Information Technology
-- **Course**: Y3-S1 IRWA (Information Retrieval and Web Analytics)
-
----
-
-## 🙏 Acknowledgments
-
-- **Google Gemini AI**: For providing powerful AI capabilities
-- **OpenAI**: For alternative AI model support
-- **Flask & FastAPI Communities**: For excellent web frameworks
-- **SLIIT Faculty**: For guidance and support
-- **Open Source Contributors**: For amazing libraries and tools
-
----
-
-## 📚 Additional Resources
-
-### Documentation
-- [Flask Documentation](https://flask.palletsprojects.com/)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Google Gemini API Docs](https://ai.google.dev/docs)
-- [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
-
-### Research & References
-- Evidence-based stress management techniques
-- AI applications in mental health
-- Cognitive behavioral therapy principles
-- Mindfulness and meditation research
-
----
 
 ## 🔮 Roadmap
 
 ### Current Version (v1.0)
-- ✅ AI-powered stress assessment
-- ✅ Personalized activity recommendations
-- ✅ Motivational support with audio
-- ✅ Task scheduling system
-- ✅ Database persistence
-- ✅ Multi-agent AI system
+- AI-powered stress assessment
+- Personalized activity recommendations
+- Motivational support with audio
+- Task scheduling system
+- Database persistence
+- User authentication and profiles
+- Calendar integration
+- Multi-agent AI system
 
-### Upcoming Features (v2.0)
-- [ ] Mobile application (React Native/Flutter)
-- [ ] User authentication and profiles
-- [ ] Social features and community support
-- [ ] Integration with wearable devices
-- [ ] Advanced analytics dashboard
-- [ ] Multi-language support
-- [ ] Voice interaction capabilities
-- [ ] Calendar integration
-- [ ] Export reports (PDF/CSV)
-- [ ] Gamification elements
 
 ### Future Considerations
-- [ ] Real-time stress monitoring
-- [ ] Video consultation integration
-- [ ] Group therapy sessions
-- [ ] Advanced ML models for prediction
-- [ ] Blockchain-based health records
-- [ ] AR/VR meditation experiences
+- Mobile application (React Native/Flutter)
+- Integration with wearable devices
+- Advanced analytics dashboard
+- Multi-language support
+- Voice interaction capabilities
+- Video consultation integration
+- Group therapy sessions
+- Advanced ML models for prediction
 
 ---
 
