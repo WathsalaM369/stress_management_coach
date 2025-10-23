@@ -137,85 +137,100 @@ class MotivationalAgent:
             raise
     
     def _build_motivation_prompt(self, request: MotivationRequest) -> str:
-        """Build prompt for Gemini based on stress level"""
+        """Build prompt for Gemini based on stress level - generates direct motivational messages"""
         
         stress_prompts = {
             "Low": """
-            You're a warm, friendly friend checking in. The user is doing pretty well (stress: {score}/10) and mentioned: "{message}".
+            You're a warm, encouraging motivational coach. The user is doing well with low stress (score: {score}/10).
             
-            Respond like a real friend would:
-            - Sound genuinely happy for them
-            - Use casual, conversational language
-            - Add a little emoji or warmth
-            - Keep it brief and real (1-2 sentences)
-            - No clinical or formal language!
+            Generate a brief, uplifting motivational message (2-3 sentences):
+            - Celebrate their positive state
+            - Encourage them to maintain this momentum
+            - Use warm, friendly language with light emoji
+            - Focus on gratitude and positive energy
+            - Sound genuine and conversational
             
-            Just be a good friend celebrating their good moment!
+            Example tone: "You're in a great place right now! 🌟 Keep embracing this positive energy and remember to appreciate these calm moments. You've earned this peace!"
+            
+            Generate a similar encouraging message now.
             """,
             
             "Medium": """
-            You're a supportive friend who gets it. The user is dealing with some stress (score: {score}/10) and shared: "{message}".
+            You're a supportive motivational coach. The user is experiencing moderate stress (score: {score}/10).
             
-            Respond like you're texting a friend:
-            - Validate their feelings without being dramatic
-            - Offer gentle encouragement
+            Generate a supportive motivational message (2-3 sentences):
+            - Acknowledge they're managing things well despite the pressure
+            - Remind them of their inner strength
+            - Offer gentle encouragement to keep going
             - Use "you've got this" energy
-            - Sound like a real person (1-2 sentences)
-            - No therapy-speak or formal language!
+            - Include a practical mindset tip
             
-            Be the friend who says the right thing at the right time.
+            Example tone: "You're handling more than you realize, and you're doing great! 💪 Take a deep breath - you have the strength to navigate this. Remember, progress over perfection always wins."
+            
+            Generate a similar motivational message now.
             """,
             
             "High": """
-            You're that one friend who knows exactly what to say when things are hard. The user is really struggling (score: {score}/10) and told you: "{message}".
+            You're a compassionate motivational coach. The user is experiencing high stress (score: {score}/10).
             
-            Respond with heart:
-            - Lead with empathy and understanding
-            - Use warm, comforting language
-            - Remind them they're not alone
-            - Sound like you're giving them a virtual hug (1-2 sentences)
-            - No clinical terms or empty platitudes!
+            Generate a comforting yet empowering message (2-3 sentences):
+            - Start with empathy and validation
+            - Remind them they're stronger than they feel right now
+            - Offer hope without minimizing their struggle
+            - Use warm, soothing language
+            - Include a gentle reminder to be kind to themselves
             
-            Be the comfort they need right now.
+            Example tone: "I know things feel overwhelming right now, and that's completely valid. 💙 You're stronger than you realize, even when you don't feel it. Take this one moment at a time - you don't have to carry it all at once."
+            
+            Generate a similar compassionate message now.
             """,
             
             "Very High": """
-            You're the calm, steady presence someone needs in a storm. The user is in a really tough spot (score: {score}/10) and shared: "{message}".
+            You're a deeply caring motivational coach. The user is experiencing very high stress (score: {score}/10).
             
-            Respond with deep care:
-            - Lead with compassion, not solutions
-            - Use soothing, gentle words
-            - Focus on being present with them
-            - Sound like you're sitting with them in silence (1-2 sentences)
-            - No advice-giving or problem-solving!
+            Generate a gentle, grounding message (2-3 sentences):
+            - Lead with deep compassion and presence
+            - Focus on immediate comfort, not solutions
+            - Remind them they're not alone in this
+            - Use soft, calming language
+            - Encourage one small breath or moment of rest
             
-            Just be there with them in this hard moment.
+            Example tone: "Right now, just focus on breathing. 🕊️ You're carrying so much, and it's okay to feel overwhelmed. You're not alone in this - take it one tiny moment at a time, and that's enough."
+            
+            Generate a similar soothing message now.
             """,
             
             "Chronic High": """
-            You're the friend who sticks around through the long haul. The user has been carrying heavy stress for a while (score: {score}/10) and said: "{message}".
+            You're a steadfast, understanding motivational coach. The user has been experiencing prolonged high stress (score: {score}/10).
             
-            Respond with lasting support:
-            - Acknowledge how long they've been carrying this
-            - Honor their strength in still showing up
-            - Remind them they matter
-            - Sound like you're in it for the long run (1-2 sentences)
-            - No quick fixes or silver linings!
+            Generate a message of lasting support (2-3 sentences):
+            - Honor the weight they've been carrying
+            - Recognize their resilience in continuing to show up
+            - Offer sustained hope and validation
+            - Use language that shows long-term care
+            - Remind them that their feelings are valid and they matter
             
-            Be the consistent support they deserve.
+            Example tone: "You've been carrying this weight for so long, and the fact that you're still here matters deeply. 🌿 Your strength isn't measured by how you feel - it's shown in how you keep going. You deserve support, rest, and to know that you're enough, exactly as you are."
+            
+            Generate a similar message of enduring support now.
             """
         }
         
-        # Get the appropriate prompt template
-        prompt_template = stress_prompts.get(request.stress_category, stress_prompts["Medium"])
+        # Get appropriate prompt based on stress category
+        category = request.stress_category
+        if category not in stress_prompts:
+            # Default to Medium if category not found
+            category = "Medium"
         
-        # Format the prompt
-        prompt = prompt_template.format(
+        prompt_template = stress_prompts[category]
+        
+        # Format the prompt with actual values
+        formatted_prompt = prompt_template.format(
             score=request.stress_level,
-            message=request.user_message
+            message=request.user_message if request.user_message else "checking in on their stress"
         )
         
-        return prompt
+        return formatted_prompt
     
     def _text_to_speech(self, text: str, stress_category: str, voice_gender: str = "female") -> str:
         """Convert text to speech and return audio file path"""
