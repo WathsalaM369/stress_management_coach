@@ -283,6 +283,10 @@ These are automatically created when you run `init_db.py`.
 
 ## 💻 Usage
 
+###open the browser
+###type url
+###http://localhost:5001/
+
 ### Starting the Application
 
 #### Method 1: Using the Main Application
