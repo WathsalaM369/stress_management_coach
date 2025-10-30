@@ -75,12 +75,16 @@ header::before {
 h1 {
     font-size: 3.5em;
     margin-bottom: 15px;
+    color: white;
     font-weight: 800;
     text-shadow: 0 4px 8px rgba(0,0,0,0.3);
     position: relative;
-    background: linear-gradient(135deg, #fff 0%, #e2e8f0 100%);
+    /** 
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    **/
+    background: linear-gradient(135deg, #fff 0%, #e2e8f0 100%);
+    
     background-clip: text;
 }
 

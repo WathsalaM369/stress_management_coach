@@ -40,7 +40,7 @@ def rank_activities(db_activities, custom_activities, stress_level, context, use
 
         # 1. Match stress level (Most important factor)
         if activity['recommended_stress_level'] == stress_level:
-            score += 10
+            score += 100
 
         # 2. Filter by available time
         if context and "available_minutes" in context:
